@@ -1,6 +1,7 @@
 use eframe::egui;
 use serde_json::Value;
-use similar::{ChangeTag, TextDiff}; // <-- Aggiunto motore testo differenze
+use similar::{ChangeTag, TextDiff}; 
+use jsonpath_rust::JsonPathQuery; 
 use std::fs;
 use std::time::Instant;
 
@@ -37,6 +38,7 @@ struct Node {
     collapsed: bool,
     visible: bool,
     status: DiffStatus, // ⚖️ Stato del nodo per i colori
+    raw_val: Value, // ✨ Memorizza il valore reale per fixare JSONPath!
 }
 
 struct JRayPro {
@@ -46,6 +48,9 @@ struct JRayPro {
     is_diff_mode: bool,   // ⚖️ Attiva la colorazione speciale
     
     search_query: String,
+    search_results_idx: Vec<usize>, // ✨ Indici dei nodi trovati
+    current_search_match: usize,    // ✨ Nodo attualmente puntato
+    
     nodes: Vec<Node>,
     connections: Vec<(usize, usize)>,
     pan: egui::Vec2,
@@ -71,6 +76,8 @@ impl Default for JRayPro {
             active_tab: 0,
             is_diff_mode: false,
             search_query: "".to_string(),
+            search_results_idx: Vec::new(),
+            current_search_match: 0,
             nodes: Vec::new(),
             connections: Vec::new(),
             pan: egui::Vec2::ZERO,
@@ -204,7 +211,6 @@ impl JRayPro {
             for n in &self.nodes {
                 if !n.visible { continue; }
                 
-                // Colori per SVG Diff
                 let border_col = if self.is_diff_mode {
                     match n.status {
                         DiffStatus::Added => "#22c55e",
@@ -346,14 +352,12 @@ impl JRayPro {
         }
     }
 
-    // ✨ LOGICA VISUAL DIFF GRAFO
     fn run_diff(&mut self) {
         let start = Instant::now();
         self.nodes.clear();
         self.connections.clear();
         self.is_diff_mode = true;
         
-        // 1. Formattiamo entrambi per avere il test diff allineato!
         if let Ok(v1) = serde_json::from_str::<Value>(&self.json_input) {
             if let Ok(p1) = serde_json::to_string_pretty(&v1) { self.json_input = p1; }
         }
@@ -361,13 +365,11 @@ impl JRayPro {
             if let Ok(p2) = serde_json::to_string_pretty(&v2) { self.json_input_b = p2; }
         }
 
-        // 2. Generiamo Grafi 3D uniti
         let v1 = serde_json::from_str::<Value>(&self.json_input).unwrap_or(Value::Null);
         let v2 = serde_json::from_str::<Value>(&self.json_input_b).unwrap_or(Value::Null);
         let mut s_idx: f32 = 0.0;
         self.diff_traverse(Some(&v1), Some(&v2), "root".to_string(), None, 0, &mut s_idx);
         
-        self.apply_search();
         self.status_msg = format!("⚖️ Diff calcolato in {:?}", start.elapsed());
     }
 
@@ -396,6 +398,7 @@ impl JRayPro {
             collapsed: false,
             visible: true,
             status,
+            raw_val: val_to_show.clone(), // ✨ FIX
         });
 
         if let Some(pi) = p_idx { self.connections.push((pi, n_idx)); }
@@ -445,7 +448,8 @@ impl JRayPro {
             let mut s_idx: f32 = 0.0;
             self.traverse(&v, "root".to_string(), None, 0, &mut s_idx);
             
-            self.apply_search();
+            let dummy_center = egui::pos2(0.0, 0.0);
+            self.apply_search(dummy_center);
             let elapsed = start.elapsed();
             self.status_msg = format!("Nitro: {} nodi in {:?}", self.nodes.len(), elapsed);
         } else {
@@ -468,14 +472,21 @@ impl JRayPro {
             collapsed: false,
             visible: true,
             status: DiffStatus::Normal,
+            raw_val: value.clone(), // ✨ FIX
         });
 
         if let Some(pi) = p_idx { self.connections.push((pi, n_idx)); }
 
         if let Some(obj) = value.as_object() {
-            for (k, v) in obj { self.traverse(v, k.clone(), Some(n_idx), d + 1, s_idx); *s_idx += 1.0; }
+            for (k, v) in obj { 
+                self.traverse(v, k.clone(), Some(n_idx), d + 1, s_idx); 
+                *s_idx += 1.0; 
+            }
         } else if let Some(arr) = value.as_array() {
-            for (i, v) in arr.iter().enumerate() { self.traverse(v, format!("[{}]", i), Some(n_idx), d + 1, s_idx); *s_idx += 1.0; }
+            for (i, v) in arr.iter().enumerate() { 
+                self.traverse(v, format!("[{}]", i), Some(n_idx), d + 1, s_idx); 
+                *s_idx += 1.0; 
+            }
         }
     }
 
@@ -488,29 +499,90 @@ impl JRayPro {
         }
     }
 
-    fn apply_search(&mut self) {
-        let query = self.search_query.to_lowercase();
-        for node in &mut self.nodes {
-            node.matches_search = query.is_empty() || 
-                                 node.label.to_lowercase().contains(&query) || 
-                                 node.value.to_lowercase().contains(&query);
+    // ✨ MOTORE DI RICERCA DEFINITIVO (Puntuale e Preciso)
+    fn apply_search(&mut self, view_center: egui::Pos2) {
+        let query = self.search_query.trim().to_string();
+        self.search_results_idx.clear();
+        self.current_search_match = 0;
+        
+        if query.is_empty() {
+            for node in &mut self.nodes { node.matches_search = true; node.visible = true; }
+            self.update_visibility();
+            return;
+        }
+
+        // AUTO-EXPAND: Apre tutti i nodi così l'utente può vedere i risultati interni (gli OBJ)
+        for node in &mut self.nodes { node.collapsed = false; }
+        self.update_visibility();
+
+        if query.starts_with("$.") || query.starts_with("$[") {
+            let target_text = if self.active_tab == 0 { &self.json_input } else { &self.json_input_b };
+            
+            if let Ok(value) = serde_json::from_str::<Value>(target_text) {
+                match value.path(&query) {
+                    Ok(results) => {
+                        if let Some(arr) = results.as_array() {
+                            if arr.is_empty() {
+                                for node in &mut self.nodes { node.matches_search = false; }
+                                self.status_msg = "🔍 Nessun risultato per questa query".to_string();
+                            } else {
+                                // Confronto esatto tra il valore originale e quello cercato
+                                for (i, node) in self.nodes.iter_mut().enumerate() {
+                                    node.matches_search = arr.contains(&node.raw_val);
+                                    if node.matches_search && node.visible {
+                                        self.search_results_idx.push(i);
+                                    }
+                                }
+                                self.status_msg = format!("🎯 Trovati {} match esatti", self.search_results_idx.len());
+                            }
+                        }
+                    },
+                    Err(_) => {
+                        for node in &mut self.nodes { node.matches_search = false; }
+                        self.status_msg = "❌ Sintassi JSONPath non valida".to_string();
+                    }
+                }
+            }
+        } else {
+            let q_lower = query.to_lowercase();
+            for (i, node) in self.nodes.iter_mut().enumerate() {
+                node.matches_search = node.label.to_lowercase().contains(&q_lower) || 
+                                     node.value.to_lowercase().contains(&q_lower);
+                if node.matches_search && node.visible {
+                    self.search_results_idx.push(i);
+                }
+            }
+            self.status_msg = format!("🔍 Trovati {} risultati testuali", self.search_results_idx.len());
+        }
+
+        if !self.search_results_idx.is_empty() {
+            self.focus_current_match(view_center);
         }
     }
 
-    fn focus_on_search(&mut self, view_center: egui::Pos2) {
-        if self.search_query.is_empty() || self.nodes.is_empty() { return; }
-        let query = self.search_query.to_lowercase();
-        
-        let found = self.nodes.iter().enumerate().skip(self.last_search_idx + 1)
-            .find(|(_, n)| n.visible && (n.label.to_lowercase().contains(&query) || n.value.to_lowercase().contains(&query)))
-            .or_else(|| self.nodes.iter().enumerate().find(|(_, n)| n.visible && (n.label.to_lowercase().contains(&query) || n.value.to_lowercase().contains(&query))));
+    // ✨ SISTEMA DI NAVIGAZIONE MULTIPLA
+    fn focus_current_match(&mut self, view_center: egui::Pos2) {
+        if self.search_results_idx.is_empty() { return; }
+        let target_idx = self.search_results_idx[self.current_search_match];
+        let target_pos = self.nodes[target_idx].pos;
+        self.zoom = 1.0;
+        self.pan = view_center.to_vec2() - (target_pos + egui::vec2(110.0, 32.5)).to_vec2() * self.zoom;
+    }
 
-        if let Some((idx, node)) = found {
-            self.last_search_idx = idx;
-            self.zoom = 1.0;
-            let world_target = node.pos + egui::vec2(110.0, 32.5);
-            self.pan = view_center.to_vec2() - (world_target.to_vec2() * self.zoom);
+    fn next_search_match(&mut self, view_center: egui::Pos2) {
+        if self.search_results_idx.is_empty() { return; }
+        self.current_search_match = (self.current_search_match + 1) % self.search_results_idx.len();
+        self.focus_current_match(view_center);
+    }
+
+    fn prev_search_match(&mut self, view_center: egui::Pos2) {
+        if self.search_results_idx.is_empty() { return; }
+        if self.current_search_match == 0 {
+            self.current_search_match = self.search_results_idx.len() - 1;
+        } else {
+            self.current_search_match -= 1;
         }
+        self.focus_current_match(view_center);
     }
 
     fn open_file(&mut self, is_file_b: bool) {
@@ -584,11 +656,30 @@ impl eframe::App for JRayPro {
                     
                     ui.separator();
                     ui.label("🔍");
-                    let s_resp = ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Cerca..."));
-                    if s_resp.changed() { self.apply_search(); self.last_search_idx = 0; }
+                    
+                    let view_center = ctx.available_rect().center();
+                    
+                    // ✨ BARRA DI RICERCA CON FRECCE DI NAVIGAZIONE
+                    let s_resp = ui.add(egui::TextEdit::singleline(&mut self.search_query)
+                        .hint_text("Cerca parola o $.jsonPath...")
+                        .desired_width(200.0));
+                        
+                    if s_resp.changed() { self.apply_search(view_center); }
+                    
+                    // Se premi INVIO scatta la freccia Avanti
                     if s_resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        self.focus_on_search(ctx.available_rect().center());
+                        self.next_search_match(view_center);
                     }
+
+                    // ⬅️ CONTATORE E FRECCE ➡️
+                    if !self.search_results_idx.is_empty() {
+                        ui.label(egui::RichText::new(format!("{}/{}", self.current_search_match + 1, self.search_results_idx.len()))
+                            .color(egui::Color32::LIGHT_GRAY).monospace());
+                        
+                        if ui.button("⬆").clicked() { self.prev_search_match(view_center); }
+                        if ui.button("⬇").clicked() { self.next_search_match(view_center); }
+                    }
+                    
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(egui::RichText::new(&self.status_msg).color(egui::Color32::LIGHT_BLUE));
                         
@@ -616,7 +707,6 @@ impl eframe::App for JRayPro {
                     });
 
                     if self.is_diff_mode {
-                        // ⚖️ VISTA DIFF TESTUALE
                         ui.separator();
                         ui.label(egui::RichText::new("👀 Comparazione Testo").color(egui::Color32::YELLOW).strong());
                         ui.separator();
@@ -644,7 +734,6 @@ impl eframe::App for JRayPro {
                             });
                         }
                     } else {
-                        // 📝 VISTA EDITOR NORMALE
                         ui.horizontal(|ui| {
                             ui.selectable_value(&mut self.active_tab, 0, "📄 File A");
                             ui.selectable_value(&mut self.active_tab, 1, "📄 File B");
@@ -826,7 +915,22 @@ impl eframe::App for JRayPro {
                 };
 
                 let stroke_w = if self.is_diff_mode && node.status != DiffStatus::Normal { 2.5 } else { 1.2 };
-                painter.rect_stroke(rect, 8.0 * self.zoom, egui::Stroke::new(stroke_w * self.zoom, b_color.gamma_multiply(if node.matches_search { 1.0 } else { 0.2 })));
+                
+                // ✨ LOGICA VISIVA MATCH: Bordo BIANCO brillante se fa match e c'è una query attiva
+                let is_currently_focused = !self.search_results_idx.is_empty() && self.search_results_idx[self.current_search_match] == idx;
+                
+                let final_stroke = if node.matches_search && !self.search_query.is_empty() {
+                    if is_currently_focused {
+                        // Se è il nodo attualmente selezionato con le frecce, è ANCORA PIÙ EVIDENTE
+                        egui::Stroke::new(4.0 * self.zoom, egui::Color32::from_rgb(255, 255, 100))
+                    } else {
+                        egui::Stroke::new(2.5 * self.zoom, egui::Color32::WHITE)
+                    }
+                } else {
+                     egui::Stroke::new(stroke_w * self.zoom, b_color.gamma_multiply(if node.matches_search || self.search_query.is_empty() { 1.0 } else { 0.15 }))
+                };
+
+                painter.rect_stroke(rect, 8.0 * self.zoom, final_stroke);
 
                 if self.zoom > 0.18 {
                     let h_rect = egui::Rect::from_min_max(rect.min, egui::pos2(rect.max.x, rect.min.y + 25.0 * self.zoom));
