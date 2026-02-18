@@ -1,5 +1,6 @@
 use eframe::egui;
 use serde_json::Value;
+use similar::{ChangeTag, TextDiff}; // <-- Aggiunto motore testo differenze
 use std::fs;
 use std::time::Instant;
 
@@ -7,7 +8,7 @@ fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 720.0])
-            .with_title("J-RAY PRO - NITRO GPU + CODE GEN"),
+            .with_title("J-RAY PRO - NITRO GPU + CODE GEN + VISUAL DIFF"),
         ..Default::default()
     };
 
@@ -23,6 +24,10 @@ fn main() -> eframe::Result<()> {
     )
 }
 
+// ⚖️ ENUM PER LO STATO DEL DIFF
+#[derive(PartialEq, Clone, Copy)]
+enum DiffStatus { Normal, Added, Removed, Modified }
+
 struct Node {
     label: Box<str>,
     value: String,
@@ -31,10 +36,15 @@ struct Node {
     matches_search: bool,
     collapsed: bool,
     visible: bool,
+    status: DiffStatus, // ⚖️ Stato del nodo per i colori
 }
 
 struct JRayPro {
     json_input: String,
+    json_input_b: String, // 📄 Secondo file per il Diff
+    active_tab: usize,    // 0 = File A, 1 = File B
+    is_diff_mode: bool,   // ⚖️ Attiva la colorazione speciale
+    
     search_query: String,
     nodes: Vec<Node>,
     connections: Vec<(usize, usize)>,
@@ -57,6 +67,9 @@ impl Default for JRayPro {
     fn default() -> Self {
         Self {
             json_input: r#"{"app": "J-RAY PRO", "features": ["Deep Code Gen", "Minimap", "Folding"]}"#.to_string(),
+            json_input_b: r#"{"app": "J-RAY PRO", "features": ["Visual Diff", "Minimap", "Folding"]}"#.to_string(),
+            active_tab: 0,
+            is_diff_mode: false,
             search_query: "".to_string(),
             nodes: Vec::new(),
             connections: Vec::new(),
@@ -89,9 +102,10 @@ impl JRayPro {
 
     fn format_json(&mut self) {
         if self.is_huge_file { return; } 
-        if let Ok(value) = serde_json::from_str::<Value>(&self.json_input) {
+        let target_input = if self.active_tab == 0 { &mut self.json_input } else { &mut self.json_input_b };
+        if let Ok(value) = serde_json::from_str::<Value>(target_input) {
             if let Ok(pretty) = serde_json::to_string_pretty(&value) {
-                self.json_input = pretty;
+                *target_input = pretty;
                 self.status_msg = "JSON formattato".to_string();
             }
         }
@@ -122,10 +136,10 @@ impl JRayPro {
     }
 
     fn sync_graph_to_json(&mut self) {
-        if self.nodes.is_empty() || self.is_huge_file { return; }
+        if self.nodes.is_empty() || self.is_huge_file || self.is_diff_mode { return; }
         let root_val = self.build_json_value(0);
         if let Ok(pretty) = serde_json::to_string_pretty(&root_val) {
-            self.json_input = pretty;
+            if self.active_tab == 0 { self.json_input = pretty; } else { self.json_input_b = pretty; }
             self.status_msg = "Sincronizzazione completata!".to_string();
         }
     }
@@ -134,7 +148,8 @@ impl JRayPro {
         if self.is_huge_file { return; } 
         self.sync_graph_to_json(); 
         if let Some(p) = rfd::FileDialog::new().add_filter("JSON", &["json"]).save_file() {
-            if fs::write(p, &self.json_input).is_ok() {
+            let target_input = if self.active_tab == 0 { &self.json_input } else { &self.json_input_b };
+            if fs::write(p, target_input).is_ok() {
                 self.status_msg = "💾 File salvato con successo".to_string();
             }
         }
@@ -188,7 +203,18 @@ impl JRayPro {
 
             for n in &self.nodes {
                 if !n.visible { continue; }
-                let border_col = if &*n.node_type == "OBJ" { "#22d3ee" } else { "#6366f1" };
+                
+                // Colori per SVG Diff
+                let border_col = if self.is_diff_mode {
+                    match n.status {
+                        DiffStatus::Added => "#22c55e",
+                        DiffStatus::Removed => "#ef4444",
+                        DiffStatus::Modified => "#eab308",
+                        DiffStatus::Normal => "#6366f1",
+                    }
+                } else {
+                    if &*n.node_type == "OBJ" { "#22d3ee" } else { "#6366f1" }
+                };
 
                 svg.push_str(&format!("<rect x=\"{}\" y=\"{}\" width=\"220\" height=\"65\" rx=\"8\" fill=\"#18181b\" stroke=\"{}\" stroke-width=\"1.5\" />\n", n.pos.x, n.pos.y, border_col));
                 svg.push_str(&format!("<path d=\"M {},{} a 8 8 0 0 1 8 -8 h 204 a 8 8 0 0 1 8 8 v 17 h -220 z\" fill=\"#000000\" fill-opacity=\"0.4\" />\n", n.pos.x, n.pos.y + 8.0));
@@ -223,18 +249,16 @@ impl JRayPro {
         }
     }
 
-    // ✨ DEEP PARSE CODE GENERATOR
     fn generate_types(&mut self) {
-        let start = Instant::now();
-        
+        if self.nodes.is_empty() {
+            self.generated_code = "// Nessun dato presente nel grafo.".to_string();
+            return;
+        }
+
         let root_val = if self.is_huge_file && self.raw_full_json.is_some() {
             let raw = self.raw_full_json.as_ref().unwrap();
             serde_json::from_str(raw).unwrap_or(Value::Null)
         } else {
-            if self.nodes.is_empty() {
-                self.generated_code = "// Nessun dato presente nel grafo.".to_string();
-                return;
-            }
             self.build_json_value(0) 
         };
 
@@ -253,7 +277,6 @@ impl JRayPro {
             _ => {}
         }
         self.generated_code = output;
-        self.status_msg = format!("🧬 Codice generato in {:?}", start.elapsed());
     }
 
     fn gen_ts(value: &Value, name: &str, output: &mut String) -> String {
@@ -323,10 +346,100 @@ impl JRayPro {
         }
     }
 
+    // ✨ LOGICA VISUAL DIFF GRAFO
+    fn run_diff(&mut self) {
+        let start = Instant::now();
+        self.nodes.clear();
+        self.connections.clear();
+        self.is_diff_mode = true;
+        
+        // 1. Formattiamo entrambi per avere il test diff allineato!
+        if let Ok(v1) = serde_json::from_str::<Value>(&self.json_input) {
+            if let Ok(p1) = serde_json::to_string_pretty(&v1) { self.json_input = p1; }
+        }
+        if let Ok(v2) = serde_json::from_str::<Value>(&self.json_input_b) {
+            if let Ok(p2) = serde_json::to_string_pretty(&v2) { self.json_input_b = p2; }
+        }
+
+        // 2. Generiamo Grafi 3D uniti
+        let v1 = serde_json::from_str::<Value>(&self.json_input).unwrap_or(Value::Null);
+        let v2 = serde_json::from_str::<Value>(&self.json_input_b).unwrap_or(Value::Null);
+        let mut s_idx: f32 = 0.0;
+        self.diff_traverse(Some(&v1), Some(&v2), "root".to_string(), None, 0, &mut s_idx);
+        
+        self.apply_search();
+        self.status_msg = format!("⚖️ Diff calcolato in {:?}", start.elapsed());
+    }
+
+    fn diff_traverse(&mut self, v1: Option<&Value>, v2: Option<&Value>, label: String, p_idx: Option<usize>, d: usize, s_idx: &mut f32) {
+        if self.nodes.len() > 150000 { return; }
+
+        let status = match (v1, v2) {
+            (Some(a), Some(b)) if a == b => DiffStatus::Normal,
+            (Some(_), Some(_)) => DiffStatus::Modified,
+            (None, Some(_)) => DiffStatus::Added,
+            (Some(_), None) => DiffStatus::Removed,
+            (None, None) => return,
+        };
+
+        let val_to_show = v2.or(v1).unwrap(); 
+        let (t_label, _) = Self::get_type_info(val_to_show);
+        let n_idx = self.nodes.len();
+        let val_str = if val_to_show.is_object() || val_to_show.is_array() { "".to_string() } else { val_to_show.to_string() };
+
+        self.nodes.push(Node {
+            label: label.into_boxed_str(),
+            value: val_str,
+            node_type: t_label.into(),
+            pos: egui::pos2(d as f32 * 350.0, *s_idx * 120.0),
+            matches_search: true,
+            collapsed: false,
+            visible: true,
+            status,
+        });
+
+        if let Some(pi) = p_idx { self.connections.push((pi, n_idx)); }
+
+        let obj1 = v1.and_then(|v| v.as_object());
+        let obj2 = v2.and_then(|v| v.as_object());
+
+        if obj1.is_some() || obj2.is_some() {
+            let mut keys = std::collections::HashSet::new();
+            if let Some(o) = obj1 { keys.extend(o.keys()); }
+            if let Some(o) = obj2 { keys.extend(o.keys()); }
+            
+            let mut sorted_keys: Vec<_> = keys.into_iter().collect();
+            sorted_keys.sort();
+
+            for k in sorted_keys {
+                let child_v1 = obj1.and_then(|o| o.get(k));
+                let child_v2 = obj2.and_then(|o| o.get(k));
+                self.diff_traverse(child_v1, child_v2, k.clone(), Some(n_idx), d + 1, s_idx);
+                *s_idx += 1.0;
+            }
+        } else {
+            let arr1 = v1.and_then(|v| v.as_array());
+            let arr2 = v2.and_then(|v| v.as_array());
+            if arr1.is_some() || arr2.is_some() {
+                let len1 = arr1.map_or(0, |a| a.len());
+                let len2 = arr2.map_or(0, |a| a.len());
+                let max_len = std::cmp::max(len1, len2);
+
+                for i in 0..max_len {
+                    let child_v1 = arr1.and_then(|a| a.get(i));
+                    let child_v2 = arr2.and_then(|a| a.get(i));
+                    self.diff_traverse(child_v1, child_v2, format!("[{}]", i), Some(n_idx), d + 1, s_idx);
+                    *s_idx += 1.0;
+                }
+            }
+        }
+    }
+
     fn generate_graph_from_string(&mut self, text: &str) {
         let start = Instant::now();
         self.nodes.clear();
         self.connections.clear();
+        self.is_diff_mode = false; 
 
         if let Ok(v) = serde_json::from_str::<Value>(text) {
             let mut s_idx: f32 = 0.0;
@@ -354,6 +467,7 @@ impl JRayPro {
             matches_search: true,
             collapsed: false,
             visible: true,
+            status: DiffStatus::Normal,
         });
 
         if let Some(pi) = p_idx { self.connections.push((pi, n_idx)); }
@@ -399,26 +513,31 @@ impl JRayPro {
         }
     }
 
-    fn open_file(&mut self) {
+    fn open_file(&mut self, is_file_b: bool) {
         if let Some(p) = rfd::FileDialog::new().add_filter("JSON", &["json"]).pick_file() {
             if let Ok(metadata) = fs::metadata(&p) {
                 let size_mb = metadata.len() as f64 / 1_048_576.0;
                 
                 if let Ok(full_text) = fs::read_to_string(p) {
-                    self.raw_full_json = Some(full_text.clone());
+                    if !is_file_b { self.raw_full_json = Some(full_text.clone()); }
 
-                    if size_mb > 5.0 {
+                    let preview_text = if size_mb > 5.0 {
                         self.is_huge_file = true;
-                        self.generate_graph_from_string(&full_text);
-                        let preview_text: String = full_text.chars().take(10000).collect();
-                        self.json_input = format!(
-                            "/* ⚠️ FILE ENORME: {:.1} MB ⚠️\n* Sincronizzazione ed Editing testuale disabilitati.\n* Il Code Gen analizzerà l'intero file in background!\n*/\n\n{}", 
-                            size_mb, preview_text
-                        );
+                        if !is_file_b { self.generate_graph_from_string(&full_text); }
+                        format!("/* ⚠️ FILE ENORME: {:.1} MB ⚠️\n* Sincronizzazione ed Editing disabilitati.\n*/\n\n{}", size_mb, full_text.chars().take(10000).collect::<String>())
                     } else {
                         self.is_huge_file = false;
-                        self.json_input = full_text;
-                        self.status_msg = "File caricato".to_string();
+                        full_text
+                    };
+
+                    if is_file_b {
+                        self.json_input_b = preview_text;
+                        self.active_tab = 1;
+                        self.status_msg = "File B caricato".to_string();
+                    } else {
+                        self.json_input = preview_text;
+                        self.active_tab = 0;
+                        self.status_msg = "File A caricato".to_string();
                     }
                 }
             }
@@ -436,23 +555,29 @@ impl eframe::App for JRayPro {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("J-RAY PRO").strong().color(egui::Color32::from_rgb(99, 102, 241)));
                     ui.separator();
-                    if ui.button("📂 Apri").clicked() { self.open_file(); }
                     
-                    ui.add_enabled(!self.is_huge_file, egui::Button::new("💾 Salva JSON")).clicked().then(|| {
+                    if ui.button("📂 File A").clicked() { self.open_file(false); }
+                    if ui.button("📂 File B").clicked() { self.open_file(true); }
+                    
+                    ui.add_enabled(!self.is_huge_file, egui::Button::new("💾 Salva")).clicked().then(|| {
                         self.save_file();
                     });
 
-                    if ui.button("📸 Esporta SVG").clicked() { self.export_to_svg(); }
-                    
                     ui.separator();
+                    if ui.button(egui::RichText::new("⚖️ Visual Diff").color(egui::Color32::YELLOW)).on_hover_text("Compara il File A col File B").clicked() { 
+                        self.run_diff(); 
+                    }
+
+                    ui.separator();
+                    if ui.button("📸 Esporta SVG").clicked() { self.export_to_svg(); }
                     if ui.button("🧬 Code Gen").on_hover_text("Genera interfacce e classi a partire dai dati").clicked() {
                         self.generate_types(); 
                         self.show_code_gen = true;
                     }
 
-                    ui.add_enabled(!self.is_huge_file, egui::Button::new("🚀 Genera")).clicked().then(|| {
+                    ui.add_enabled(!self.is_huge_file, egui::Button::new("🚀 Genera Grafo")).clicked().then(|| {
                         if !self.is_huge_file { 
-                            let text = self.json_input.clone();
+                            let text = if self.active_tab == 0 { self.json_input.clone() } else { self.json_input_b.clone() };
                             self.generate_graph_from_string(&text); 
                         }
                     });
@@ -466,30 +591,78 @@ impl eframe::App for JRayPro {
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(egui::RichText::new(&self.status_msg).color(egui::Color32::LIGHT_BLUE));
+                        
+                        if self.is_diff_mode {
+                            ui.label(egui::RichText::new("■ Modificato").color(egui::Color32::from_rgb(234, 179, 8)));
+                            ui.label(egui::RichText::new("■ Rimosso").color(egui::Color32::from_rgb(239, 68, 68)));
+                            ui.label(egui::RichText::new("■ Aggiunto").color(egui::Color32::from_rgb(34, 197, 94)));
+                        }
                     });
                 });
             });
 
-            egui::SidePanel::left("editor").width_range(250.0..=450.0).show(ctx, |ui| {
+            // ✨ EDITOR E VISTA TESTO DIFF
+            egui::SidePanel::left("editor").width_range(300.0..=600.0).show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
                         ui.heading("Editor");
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.add_enabled(!self.is_huge_file, egui::Button::new("✨ Format")).clicked().then(|| {
+                            ui.add_enabled(!self.is_huge_file && !self.is_diff_mode, egui::Button::new("✨ Format")).clicked().then(|| {
                                 self.format_json();
                             });
-                            ui.add_enabled(!self.is_huge_file && !self.nodes.is_empty(), egui::Button::new("🔄 Sync Grafo"))
+                            ui.add_enabled(!self.is_huge_file && !self.nodes.is_empty() && !self.is_diff_mode, egui::Button::new("🔄 Sync Grafo"))
                                 .clicked().then(|| { self.sync_graph_to_json(); });
                         });
                     });
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        let tc = if self.is_huge_file { egui::Color32::from_rgb(250, 200, 100) } else { egui::Color32::LIGHT_GRAY };
-                        ui.add(egui::TextEdit::multiline(&mut self.json_input)
-                            .font(egui::TextStyle::Monospace)
-                            .text_color(tc)
-                            .interactive(!self.is_huge_file)
-                            .desired_width(f32::INFINITY));
-                    });
+
+                    if self.is_diff_mode {
+                        // ⚖️ VISTA DIFF TESTUALE
+                        ui.separator();
+                        ui.label(egui::RichText::new("👀 Comparazione Testo").color(egui::Color32::YELLOW).strong());
+                        ui.separator();
+                        
+                        if self.is_huge_file {
+                            ui.label(egui::RichText::new("⚠️ TESTO TROPPO GRANDE PER IL DIFF INLINE").color(egui::Color32::RED));
+                            ui.label("Usa il grafo 3D a destra per esplorare le differenze.");
+                        } else {
+                            egui::ScrollArea::both().show(ui, |ui| {
+                                let diff = TextDiff::from_lines(&self.json_input, &self.json_input_b);
+                                let mut job = egui::text::LayoutJob::default();
+                                
+                                for change in diff.iter_all_changes() {
+                                    let (color, bg, sign) = match change.tag() {
+                                        ChangeTag::Delete => (egui::Color32::from_rgb(255, 120, 120), egui::Color32::from_black_alpha(100), "- "),
+                                        ChangeTag::Insert => (egui::Color32::from_rgb(120, 255, 120), egui::Color32::from_black_alpha(100), "+ "),
+                                        ChangeTag::Equal => (egui::Color32::LIGHT_GRAY, egui::Color32::TRANSPARENT, "  "),
+                                    };
+                                    
+                                    let font = egui::FontId::monospace(12.0);
+                                    job.append(sign, 0.0, egui::text::TextFormat { font_id: font.clone(), color, background: bg, ..Default::default() });
+                                    job.append(change.value(), 0.0, egui::text::TextFormat { font_id: font, color, background: bg, ..Default::default() });
+                                }
+                                ui.label(job);
+                            });
+                        }
+                    } else {
+                        // 📝 VISTA EDITOR NORMALE
+                        ui.horizontal(|ui| {
+                            ui.selectable_value(&mut self.active_tab, 0, "📄 File A");
+                            ui.selectable_value(&mut self.active_tab, 1, "📄 File B");
+                        });
+                        ui.separator();
+
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            let tc = if self.is_huge_file { egui::Color32::from_rgb(250, 200, 100) } else { egui::Color32::LIGHT_GRAY };
+                            
+                            if self.active_tab == 0 {
+                                ui.add(egui::TextEdit::multiline(&mut self.json_input)
+                                    .font(egui::TextStyle::Monospace).text_color(tc).interactive(!self.is_huge_file).desired_width(f32::INFINITY));
+                            } else {
+                                ui.add(egui::TextEdit::multiline(&mut self.json_input_b)
+                                    .font(egui::TextStyle::Monospace).text_color(tc).interactive(!self.is_huge_file).desired_width(f32::INFINITY));
+                            }
+                        });
+                    }
                 });
             });
         }
@@ -641,8 +814,19 @@ impl eframe::App for JRayPro {
 
                 painter.rect_filled(rect, 8.0 * self.zoom, base_color);
                 
-                let b_color = if &*node.node_type == "OBJ" { egui::Color32::from_rgb(34, 211, 238) } else { egui::Color32::from_rgb(99, 102, 241) };
-                painter.rect_stroke(rect, 8.0 * self.zoom, egui::Stroke::new(1.2 * self.zoom, b_color.gamma_multiply(if node.matches_search { 1.0 } else { 0.2 })));
+                let b_color = if self.is_diff_mode {
+                    match node.status {
+                        DiffStatus::Added => egui::Color32::from_rgb(34, 197, 94),   // 🟩 Verde
+                        DiffStatus::Removed => egui::Color32::from_rgb(239, 68, 68), // 🟥 Rosso
+                        DiffStatus::Modified => egui::Color32::from_rgb(234, 179, 8),// 🟨 Giallo
+                        DiffStatus::Normal => egui::Color32::from_rgb(99, 102, 241), // 🟦 Blu Default
+                    }
+                } else {
+                    if &*node.node_type == "OBJ" { egui::Color32::from_rgb(34, 211, 238) } else { egui::Color32::from_rgb(99, 102, 241) }
+                };
+
+                let stroke_w = if self.is_diff_mode && node.status != DiffStatus::Normal { 2.5 } else { 1.2 };
+                painter.rect_stroke(rect, 8.0 * self.zoom, egui::Stroke::new(stroke_w * self.zoom, b_color.gamma_multiply(if node.matches_search { 1.0 } else { 0.2 })));
 
                 if self.zoom > 0.18 {
                     let h_rect = egui::Rect::from_min_max(rect.min, egui::pos2(rect.max.x, rect.min.y + 25.0 * self.zoom));

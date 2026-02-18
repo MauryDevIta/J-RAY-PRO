@@ -9,3 +9,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rfd = "0.14"
 rayon = "1.10" # 🔥 Elaborazione parallela multi-core
+similar = "2.2"
+jsonpath-rust = "0.3"
