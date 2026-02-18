@@ -5,6 +5,55 @@ use similar::{ChangeTag, TextDiff};
 impl eframe::App for JRayPro {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
+        // ✨ RADAR: LOOP DI RETE ASINCRONO
+        if self.is_api_live {
+            let now = std::time::Instant::now();
+            let should_fetch = match self.last_api_fetch {
+                None => true,
+                Some(last) => now.duration_since(last).as_secs_f32() >= self.api_interval,
+            };
+
+            if should_fetch {
+                self.last_api_fetch = Some(now);
+                let url = self.api_url.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                self.api_receiver = Some(rx);
+
+                std::thread::spawn(move || {
+                    if let Ok(response) = reqwest::blocking::get(&url) {
+                        if let Ok(text) = response.text() {
+                            let _ = tx.send(text);
+                        }
+                    }
+                });
+            }
+            ctx.request_repaint_after(std::time::Duration::from_millis(200)); 
+        }
+
+        // ✨ RADAR: RICEZIONE DATI E AUTO-AGGIORNAMENTO
+        if let Some(rx) = &self.api_receiver {
+            if let Ok(new_json) = rx.try_recv() {
+                
+                if self.is_diff_mode {
+                    self.json_input_b = self.json_input.clone();
+                    self.raw_full_json_b = self.raw_full_json.clone();
+                    
+                    self.json_input = new_json.clone();
+                    self.raw_full_json = Some(new_json.clone());
+                    
+                    self.run_diff(); 
+                    self.status_msg = format!("📡 Live Diff aggiornato alle {}", chrono::Local::now().format("%H:%M:%S"));
+                } else {
+                    self.json_input = new_json.clone();
+                    self.raw_full_json = Some(new_json.clone());
+                    self.active_tab = 0;
+                    self.generate_graph_from_string(&new_json);
+                    self.status_msg = format!("📡 Radar: Ricevuti dati alle {}", chrono::Local::now().format("%H:%M:%S"));
+                }
+            }
+        }
+
+        // --- CARICAMENTO SMART STACK ---
         if self.loading_state == 2 {
             if let Some(path) = self.pending_path.take() {
                 let current_limit = self.array_limits.get(&path).copied().unwrap_or(5);
@@ -30,6 +79,7 @@ impl eframe::App for JRayPro {
             self.loading_state = 0; 
         }
 
+        // --- DA QUI IN POI DISEGNAMO L'INTERFACCIA ---
         if !self.is_zen_mode {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -41,14 +91,11 @@ impl eframe::App for JRayPro {
                     ui.add_enabled(!self.is_huge_file, egui::Button::new("💾 Salva")).clicked().then(|| { self.save_file(); });
 
                     ui.separator();
-                    
-                    // ✨ FIX: PULSANTE DIFF CHE FA DA INTERRUTTORE (TOGGLE)
                     let diff_lbl = if self.is_diff_mode { "❌ Chiudi Diff" } else { "⚖️ Visual Diff" };
                     let diff_col = if self.is_diff_mode { egui::Color32::from_rgb(239, 68, 68) } else { egui::Color32::YELLOW };
                     
                     if ui.button(egui::RichText::new(diff_lbl).color(diff_col)).clicked() { 
                         if self.is_diff_mode {
-                            // Se il Diff è aperto, lo chiude e ricarica il grafo normale!
                             let text = if self.active_tab == 0 {
                                 if self.json_input.starts_with("/* ⚠️") && self.raw_full_json.is_some() { self.raw_full_json.as_ref().unwrap().clone() } else { self.json_input.clone() }
                             } else {
@@ -57,11 +104,25 @@ impl eframe::App for JRayPro {
                             self.generate_graph_from_string(&text);
                             self.status_msg = "Diff chiuso. Grafo ripristinato.".to_string();
                         } else {
-                            // Se non è aperto, avvia il calcolo del diff
                             self.run_diff(); 
                         }
                     }
                     
+                    ui.separator();
+                    
+                    // ✨ RADAR: INTERFACCIA TOP BAR
+                    ui.label("📡 API:");
+                    ui.add(egui::TextEdit::singleline(&mut self.api_url).hint_text("https://...").desired_width(150.0));
+                    // FIX: custom_width invece di desired_width
+                    ui.add(egui::Slider::new(&mut self.api_interval, 0.5..=10.0).text("sec"));                    
+                    let live_btn_text = if self.is_api_live { "🛑 Stop" } else { "▶ LIVE" };
+                    let live_btn_color = if self.is_api_live { egui::Color32::RED } else { egui::Color32::from_rgb(34, 197, 94) }; 
+                    
+                    if ui.button(egui::RichText::new(live_btn_text).color(live_btn_color)).clicked() {
+                        self.is_api_live = !self.is_api_live;
+                        if self.is_api_live { self.last_api_fetch = None; } 
+                    }
+
                     ui.separator();
                     if ui.button(egui::RichText::new("📊 Profiler").color(egui::Color32::from_rgb(34, 211, 238))).on_hover_text("Rileva Anomalie Dati (AI)").clicked() { 
                         self.run_profiler(); 
@@ -81,7 +142,7 @@ impl eframe::App for JRayPro {
                     ui.separator();
                     ui.label("🔍");
                     let view_center = ctx.available_rect().center();
-                    let s_resp = ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Cerca o $.jsonPath...").desired_width(200.0));
+                    let s_resp = ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Cerca o $.jsonPath...").desired_width(120.0));
                     if s_resp.changed() { self.apply_search(view_center); }
                     if s_resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) { self.next_search_match(view_center); }
 
@@ -94,9 +155,9 @@ impl eframe::App for JRayPro {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(egui::RichText::new(&self.status_msg).color(egui::Color32::LIGHT_BLUE));
                         if self.is_diff_mode {
-                            ui.label(egui::RichText::new("■ Modificato").color(egui::Color32::from_rgb(234, 179, 8)));
-                            ui.label(egui::RichText::new("■ Rimosso").color(egui::Color32::from_rgb(239, 68, 68)));
-                            ui.label(egui::RichText::new("■ Aggiunto").color(egui::Color32::from_rgb(34, 197, 94)));
+                            ui.label(egui::RichText::new("■ Mod").color(egui::Color32::from_rgb(234, 179, 8)));
+                            ui.label(egui::RichText::new("■ Rim").color(egui::Color32::from_rgb(239, 68, 68)));
+                            ui.label(egui::RichText::new("■ Agg").color(egui::Color32::from_rgb(34, 197, 94)));
                         }
                     });
                 });

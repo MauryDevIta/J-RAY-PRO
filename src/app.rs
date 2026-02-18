@@ -16,7 +16,7 @@ pub struct Node {
     pub status: DiffStatus,
     pub path: String,
     pub raw_val: Value,
-    pub is_secret: bool, // ✨ X-RAY: Flag per capire se è un token crittografato
+    pub is_secret: bool,
 }
 
 #[derive(Default, Clone)]
@@ -55,9 +55,14 @@ pub struct JRayPro {
     pub array_limits: HashMap<String, usize>, 
     pub loading_state: u8, 
     pub pending_path: Option<String>,
-
-    // ✨ X-RAY: Memoria per i dati decriptati da mostrare nel popup
     pub decoded_payload: Option<String>,
+
+    // ✨ RADAR: Variabili per lo Stream Live API
+    pub api_url: String,
+    pub api_interval: f32,
+    pub is_api_live: bool,
+    pub last_api_fetch: Option<std::time::Instant>,
+    pub api_receiver: Option<std::sync::mpsc::Receiver<String>>,
 }
 
 impl Default for JRayPro {
@@ -88,7 +93,13 @@ impl Default for JRayPro {
             array_limits: HashMap::new(),
             loading_state: 0,
             pending_path: None,
-            decoded_payload: None, // Inizialmente vuoto
+            decoded_payload: None,
+            // ✨ RADAR: Valori di default
+            api_url: "http://api.open-notify.org/iss-now.json".to_string(), // Link di test geniale
+            api_interval: 2.0, // Aggiorna ogni 2 secondi
+            is_api_live: false,
+            last_api_fetch: None,
+            api_receiver: None,
         }
     }
 }
