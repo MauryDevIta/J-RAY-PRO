@@ -5,7 +5,6 @@ use similar::{ChangeTag, TextDiff};
 impl eframe::App for JRayPro {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
-        // ✨ FASE 2: IL CALCOLO PESANTE (Avviene il frame successivo alla comparsa del Pop-up)
         if self.loading_state == 2 {
             if let Some(path) = self.pending_path.take() {
                 let current_limit = self.array_limits.get(&path).copied().unwrap_or(5);
@@ -31,8 +30,6 @@ impl eframe::App for JRayPro {
             self.loading_state = 0; 
         }
 
-        // --- DA QUI IN POI DISEGNAMO L'INTERFACCIA NORMALE ---
-
         if !self.is_zen_mode {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 ui.horizontal(|ui| {
@@ -44,7 +41,26 @@ impl eframe::App for JRayPro {
                     ui.add_enabled(!self.is_huge_file, egui::Button::new("💾 Salva")).clicked().then(|| { self.save_file(); });
 
                     ui.separator();
-                    if ui.button(egui::RichText::new("⚖️ Visual Diff").color(egui::Color32::YELLOW)).clicked() { self.run_diff(); }
+                    
+                    // ✨ FIX: PULSANTE DIFF CHE FA DA INTERRUTTORE (TOGGLE)
+                    let diff_lbl = if self.is_diff_mode { "❌ Chiudi Diff" } else { "⚖️ Visual Diff" };
+                    let diff_col = if self.is_diff_mode { egui::Color32::from_rgb(239, 68, 68) } else { egui::Color32::YELLOW };
+                    
+                    if ui.button(egui::RichText::new(diff_lbl).color(diff_col)).clicked() { 
+                        if self.is_diff_mode {
+                            // Se il Diff è aperto, lo chiude e ricarica il grafo normale!
+                            let text = if self.active_tab == 0 {
+                                if self.json_input.starts_with("/* ⚠️") && self.raw_full_json.is_some() { self.raw_full_json.as_ref().unwrap().clone() } else { self.json_input.clone() }
+                            } else {
+                                if self.json_input_b.starts_with("/* ⚠️") && self.raw_full_json_b.is_some() { self.raw_full_json_b.as_ref().unwrap().clone() } else { self.json_input_b.clone() }
+                            };
+                            self.generate_graph_from_string(&text);
+                            self.status_msg = "Diff chiuso. Grafo ripristinato.".to_string();
+                        } else {
+                            // Se non è aperto, avvia il calcolo del diff
+                            self.run_diff(); 
+                        }
+                    }
                     
                     ui.separator();
                     if ui.button(egui::RichText::new("📊 Profiler").color(egui::Color32::from_rgb(34, 211, 238))).on_hover_text("Rileva Anomalie Dati (AI)").clicked() { 
@@ -183,6 +199,7 @@ impl eframe::App for JRayPro {
         self.show_code_gen = show_window;
 
         let mut expand_stack_path: Option<String> = None;
+        let mut do_decode: Option<String> = None; 
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let (resp, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::drag());
@@ -321,6 +338,14 @@ impl eframe::App for JRayPro {
                         if !is_container {
                             let text_rect = egui::Rect::from_center_size(rect.center() + egui::vec2(0.0, 10.0 * self.zoom), egui::vec2(190.0, 20.0) * self.zoom);
                             ui.put(text_rect, egui::TextEdit::singleline(&mut node.value).font(egui::FontId::monospace(11.0 * self.zoom)).text_color(egui::Color32::from_rgb(200, 200, 200)).frame(false).horizontal_align(egui::Align::Center));
+                            
+                            if node.is_secret {
+                                let btn_rect = egui::Rect::from_center_size(rect.right_center() + egui::vec2(-20.0 * self.zoom, 8.0 * self.zoom), egui::vec2(24.0, 16.0) * self.zoom);
+                                if ui.put(btn_rect, egui::Button::new(egui::RichText::new("🔓").size(10.0 * self.zoom)).fill(egui::Color32::from_rgb(220, 38, 38))).on_hover_text("Decripta Token (JWT/Base64)").clicked() {
+                                    do_decode = Some(node.value.clone());
+                                }
+                            }
+
                         } else if &*node.node_type == "STACK" {
                              painter.text(rect.center() + egui::vec2(0.0, 10.0 * self.zoom), egui::Align2::CENTER_CENTER, &node.value, egui::FontId::proportional(11.0 * self.zoom), egui::Color32::from_rgb(236, 72, 153));
                         }
@@ -370,21 +395,39 @@ impl eframe::App for JRayPro {
             if ui.put(egui::Rect::from_center_size(zen_pos, egui::vec2(45.0, 45.0)), egui::Button::new("🧘").rounding(25.0)).clicked() { self.is_zen_mode = !self.is_zen_mode; }
         });
 
-        // ✨ FASE 1: DISEGNA IL POPUP SOPRA L'INTERFACCIA (CENTRO ASSOLUTO)
+        if let Some(secret) = do_decode {
+            self.decoded_payload = Some(Self::decode_secret(&secret));
+        }
+
+        if let Some(mut payload) = self.decoded_payload.clone() {
+            egui::Window::new("🔓 L'Occhio a Raggi X - Payload Decriptato")
+                .collapsible(false)
+                .resizable(true)
+                .default_size([500.0, 350.0])
+                .show(ctx, |ui| {
+                    ui.label(egui::RichText::new("I dati nascosti in questo Token sono:").color(egui::Color32::LIGHT_GREEN));
+                    ui.separator();
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        ui.add(egui::TextEdit::multiline(&mut payload)
+                            .font(egui::TextStyle::Monospace)
+                            .desired_width(f32::INFINITY));
+                    });
+                    ui.separator();
+                    if ui.button("Chiudi finestra").clicked() {
+                        self.decoded_payload = None;
+                    }
+                });
+        }
+
         if self.loading_state == 1 {
             egui::Area::new(egui::Id::new("loading_overlay"))
                 .order(egui::Order::Foreground)
                 .fixed_pos(egui::pos2(0.0, 0.0))
                 .show(ctx, |ui| {
                     let screen_rect = ctx.screen_rect();
-                    
-                    // 1. Blocca i click sullo sfondo!
                     ui.interact(screen_rect, egui::Id::new("blocker"), egui::Sense::click());
-
-                    // 2. Scurisce lo sfondo a tutto schermo
                     ui.painter().rect_filled(screen_rect, 0.0, egui::Color32::from_black_alpha(220));
 
-                    // 3. Disegna il box matematicamente al centro esatto
                     let popup_size = egui::vec2(450.0, 160.0);
                     let popup_rect = egui::Rect::from_center_size(screen_rect.center(), popup_size);
                     
@@ -406,14 +449,13 @@ impl eframe::App for JRayPro {
                     });
                 });
 
-            self.loading_state = 2; // Prepara per calcolare al prossimo frame
-            ctx.request_repaint(); // Chiede ad egui di aggiornare ORA
+            self.loading_state = 2;
+            ctx.request_repaint(); 
         }
 
-        // ✨ INNESCO: Se l'utente clicca "+50"
         if let Some(path) = expand_stack_path {
             self.pending_path = Some(path);
-            self.loading_state = 1; // Innesca il popup per il frame successivo
+            self.loading_state = 1; 
             ctx.request_repaint();
         }
     }

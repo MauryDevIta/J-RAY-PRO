@@ -16,6 +16,7 @@ pub struct Node {
     pub status: DiffStatus,
     pub path: String,
     pub raw_val: Value,
+    pub is_secret: bool, // ✨ X-RAY: Flag per capire se è un token crittografato
 }
 
 #[derive(Default, Clone)]
@@ -39,7 +40,6 @@ pub struct JRayPro {
     pub zoom: f32,
     pub status_msg: String,
     pub is_zen_mode: bool,
-    pub last_search_idx: usize,
     pub dragged_node: Option<usize>,
     
     pub is_huge_file: bool,
@@ -53,10 +53,11 @@ pub struct JRayPro {
     pub profiler_reports: Vec<String>,
     
     pub array_limits: HashMap<String, usize>, 
-
-    // ✨ MACCHINA A STATI PER IL CARICAMENTO
-    pub loading_state: u8, // 0 = Normale, 1 = Disegna Loading UI, 2 = Blocca CPU e Calcola
+    pub loading_state: u8, 
     pub pending_path: Option<String>,
+
+    // ✨ X-RAY: Memoria per i dati decriptati da mostrare nel popup
+    pub decoded_payload: Option<String>,
 }
 
 impl Default for JRayPro {
@@ -75,7 +76,6 @@ impl Default for JRayPro {
             zoom: 1.0,
             status_msg: "Trifecta Engine Online".to_string(),
             is_zen_mode: false,
-            last_search_idx: 0,
             dragged_node: None,
             is_huge_file: false,
             raw_full_json: None,
@@ -88,6 +88,7 @@ impl Default for JRayPro {
             array_limits: HashMap::new(),
             loading_state: 0,
             pending_path: None,
+            decoded_payload: None, // Inizialmente vuoto
         }
     }
 }

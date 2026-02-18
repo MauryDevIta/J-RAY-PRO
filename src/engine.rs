@@ -7,6 +7,51 @@ use std::fs;
 use std::time::Instant;
 
 impl JRayPro {
+
+    // ✨ X-RAY ALGORITHM: Riconosce i Token ad occhio nudo
+    pub fn is_likely_secret(s: &str) -> bool {
+        // Rimuoviamo le virgolette " " aggiunte da serde_json
+        let clean_s = s.trim_matches('"');
+        
+        // I token seri sono lunghi e senza spazi
+        if clean_s.len() < 20 || clean_s.contains(' ') { return false; }
+        // "ey..." è la codifica Base64 per '{"', usata nel 99% dei JWT e JSON encodati
+        clean_s.starts_with("ey") || clean_s.split('.').count() == 3
+    }
+
+    // ✨ X-RAY ALGORITHM: Decriptatore automatico
+    pub fn decode_secret(s: &str) -> String {
+        use base64::{Engine as _, engine::general_purpose};
+        
+        // Rimuoviamo le virgolette " " anche prima di decriptare
+        let clean_s = s.trim_matches('"');
+        
+        // Se è un JWT (3 parti), prendiamo il payload (la parte in mezzo)
+        let parts: Vec<&str> = clean_s.split('.').collect();
+        let target = if parts.len() == 3 { parts[1] } else { clean_s };
+        
+        // Proviamo a decriptare con i due standard più usati (URL-Safe e Normale)
+        let decoded = general_purpose::URL_SAFE_NO_PAD.decode(target)
+            .or_else(|_| general_purpose::STANDARD.decode(target))
+            .or_else(|_| general_purpose::STANDARD_NO_PAD.decode(target));
+            
+        match decoded {
+            Ok(bytes) => {
+                if let Ok(utf8) = String::from_utf8(bytes) {
+                    // Se dentro c'è un JSON, lo rendiamo bellissimo da leggere
+                    if let Ok(val) = serde_json::from_str::<Value>(&utf8) {
+                        serde_json::to_string_pretty(&val).unwrap_or(utf8)
+                    } else {
+                        utf8
+                    }
+                } else {
+                    "❌ ERRORE: La decriptazione ha rivelato dati binari (non testo).".into()
+                }
+            },
+            Err(_) => "❌ ERRORE: Chiave crittografica fallita o Base64 corrotto.".into()
+        }
+    }
+
     pub fn get_type_info(v: &Value) -> (&str, egui::Color32) {
         match v {
             Value::String(_) => ("STR", egui::Color32::from_rgb(16, 185, 129)),
@@ -35,9 +80,7 @@ impl JRayPro {
             "OBJ" => {
                 let mut map = serde_json::Map::new();
                 for &(p, c) in &self.connections {
-                    if p == idx {
-                        map.insert(self.nodes[c].label.to_string(), self.build_json_value(c));
-                    }
+                    if p == idx { map.insert(self.nodes[c].label.to_string(), self.build_json_value(c)); }
                 }
                 Value::Object(map)
             }
@@ -207,7 +250,7 @@ impl JRayPro {
                 }
                 if stat.null_or_empty > 0 {
                     let perc = (stat.null_or_empty as f64 / stat.total as f64) * 100.0;
-                    if perc >= 1.0 { reports.push(format!("📉 Il campo '{}' è vuoto/null nel {:.1}% dei casi ({} su {} totali).", key, perc, stat.null_or_empty, stat.total)); }
+                    if perc >= 1.0 { reports.push(format!("📉 Il campo '{}' è vuoto/null nel {:.1}% dei cases ({} su {} totali).", key, perc, stat.null_or_empty, stat.total)); }
                 }
             }
             if reports.is_empty() { reports.push("✅ Nessuna anomalia di struttura rilevata! Il dataset è pulitissimo.".to_string()); } 
@@ -269,10 +312,13 @@ impl JRayPro {
         let n_idx = self.nodes.len();
         let val_str = if val_to_show.is_object() || val_to_show.is_array() { "".to_string() } else { val_to_show.to_string() };
 
+        let is_sec = if t_label == "STR" { Self::is_likely_secret(&val_str) } else { false };
+
         self.nodes.push(Node {
             label: label.into_boxed_str(), value: val_str, node_type: t_label.into(),
             pos: egui::pos2(d as f32 * 350.0, *s_idx * 120.0), matches_search: true,
             collapsed: false, visible: true, status, path: current_path.clone(), raw_val: val_to_show.clone(),
+            is_secret: is_sec,
         });
         if let Some(pi) = p_idx { self.connections.push((pi, n_idx)); }
 
@@ -292,8 +338,6 @@ impl JRayPro {
                 let len1 = arr1.map_or(0, |a| a.len());
                 let len2 = arr2.map_or(0, |a| a.len());
                 let max_len = std::cmp::max(len1, len2);
-
-                // ✨ LIMITATORE ESPANDIBILE
                 let limit = self.array_limits.get(&current_path).copied().unwrap_or(5);
 
                 if max_len > limit {
@@ -311,12 +355,9 @@ impl JRayPro {
                     let stack_status = if len1 != len2 { DiffStatus::Modified } else { DiffStatus::Normal };
                     
                     self.nodes.push(Node {
-                        label: stack_label.into_boxed_str(),
-                        value: stack_val,
-                        node_type: "STACK".into(),
-                        pos: egui::pos2((d + 1) as f32 * 350.0, *s_idx * 120.0),
-                        matches_search: true, collapsed: false, visible: true,
-                        status: stack_status, path: current_path.clone(), raw_val: Value::Null,
+                        label: stack_label.into_boxed_str(), value: stack_val, node_type: "STACK".into(),
+                        pos: egui::pos2((d + 1) as f32 * 350.0, *s_idx * 120.0), matches_search: true, collapsed: false, visible: true,
+                        status: stack_status, path: current_path.clone(), raw_val: Value::Null, is_secret: false,
                     });
                     self.connections.push((n_idx, self.nodes.len() - 1));
                     *s_idx += 1.0;
@@ -351,11 +392,14 @@ impl JRayPro {
         let (t_label, _) = Self::get_type_info(value);
         let n_idx = self.nodes.len();
         let val_str = if value.is_object() || value.is_array() { "".to_string() } else { value.to_string() };
+        
+        let is_sec = if t_label == "STR" { Self::is_likely_secret(&val_str) } else { false };
 
         self.nodes.push(Node {
             label: label.into_boxed_str(), value: val_str, node_type: t_label.into(),
             pos: egui::pos2(d as f32 * 350.0, *s_idx * 120.0), matches_search: true,
             collapsed: false, visible: true, status: DiffStatus::Normal, path: current_path.clone(), raw_val: value.clone(), 
+            is_secret: is_sec,
         });
         if let Some(pi) = p_idx { self.connections.push((pi, n_idx)); }
 
@@ -365,10 +409,7 @@ impl JRayPro {
                 self.traverse(v, k.clone(), Some(n_idx), d + 1, s_idx, p); *s_idx += 1.0; 
             }
         } else if let Some(arr) = value.as_array() {
-            
-            // ✨ LIMITATORE ESPANDIBILE
             let limit = self.array_limits.get(&current_path).copied().unwrap_or(5);
-
             if arr.len() > limit {
                 for (i, v) in arr.iter().take(limit).enumerate() { 
                     let p = format!("{}[{}]", current_path, i);
@@ -381,12 +422,9 @@ impl JRayPro {
                 let remaining_vals: Vec<Value> = arr.iter().skip(limit).cloned().collect();
                 
                 self.nodes.push(Node {
-                    label: stack_label.into_boxed_str(),
-                    value: stack_val,
-                    node_type: "STACK".into(),
-                    pos: egui::pos2((d + 1) as f32 * 350.0, *s_idx * 120.0),
-                    matches_search: true, collapsed: false, visible: true, status: DiffStatus::Normal,
-                    path: current_path.clone(), raw_val: Value::Array(remaining_vals), 
+                    label: stack_label.into_boxed_str(), value: stack_val, node_type: "STACK".into(),
+                    pos: egui::pos2((d + 1) as f32 * 350.0, *s_idx * 120.0), matches_search: true, collapsed: false, visible: true, status: DiffStatus::Normal,
+                    path: current_path.clone(), raw_val: Value::Array(remaining_vals), is_secret: false,
                 });
                 self.connections.push((n_idx, self.nodes.len() - 1));
                 *s_idx += 1.0;
