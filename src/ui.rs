@@ -1,9 +1,63 @@
-use crate::app::{JRayPro, DiffStatus};
+use crate::app::{JRayPro, DiffStatus, LicenseTier};
 use eframe::egui;
 use similar::{ChangeTag, TextDiff};
 
 impl eframe::App for JRayPro {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+
+        // --- 🛑 MODALITÀ EXPIRED (BLOCCO TOTALE E CENTRATO) ---
+        // Deve stare in cima! Se scatta, disegna e usa il "return" per bloccare il resto.
+        if self.license_tier == LicenseTier::Expired {
+            // Sfondo nero puro per coprire tutto
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(12, 12, 15));
+                
+                // Finestra Modale Assoluta
+                egui::Window::new("🔐 ATTIVAZIONE RICHIESTA")
+                    .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                    .collapsible(false)
+                    .resizable(false)
+                    .movable(false)
+                    .show(ctx, |ui| {
+                        ui.add_space(10.0);
+                        ui.vertical_centered(|ui| {
+                            ui.heading(egui::RichText::new("IL PERIODO DI PROVA È TERMINATO").size(22.0).color(egui::Color32::from_rgb(255, 80, 80)));
+                            ui.add_space(15.0);
+                            ui.label(egui::RichText::new("Sblocca la licenza Lifetime per continuare a usare il motore Nitro.").size(15.0).color(egui::Color32::WHITE));
+                            ui.add_space(25.0);
+                            
+                            // Tasto di Acquisto
+                            if ui.button(egui::RichText::new("🛒 ACQUISTA J-RAY PRO").size(20.0).strong()).clicked() {
+                                let _ = open::that("https://jraypro.com/#pricing");
+                            }
+                            
+                            ui.add_space(20.0);
+                            ui.separator();
+                            ui.add_space(15.0);
+                            
+                            ui.label(egui::RichText::new("Hai già una licenza? Inseriscila qui:").color(egui::Color32::LIGHT_GRAY));
+                            ui.add_space(5.0);
+                            ui.add(egui::TextEdit::singleline(&mut self.license_key).hint_text("AAAA-BBBB-CCCC-DDDD").desired_width(280.0));
+                            ui.add_space(10.0);
+                            
+                            if ui.button(egui::RichText::new("🚀 Attiva Software").size(16.0)).clicked() {
+                                println!("Richiesta attivazione per la chiave: {}", self.license_key);
+                            }
+                            
+                            ui.add_space(20.0);
+                            ui.label(egui::RichText::new(format!("ID Dispositivo: {}", self.machine_id)).small().color(egui::Color32::from_gray(100)));
+                        });
+                        ui.add_space(10.0);
+                    });
+            });
+            
+            // FONDAMENTALE: Ferma l'esecuzione qui. Niente grafo, niente menu!
+            return; 
+        }
+        // --- FINE MODALITÀ EXPIRED ---
+
+
+        // 👇 DA QUI INIZIA IL PROGRAMMA NORMALE (Se non sei Expired) 👇
 
         // ✨ RADAR: LOOP DI RETE ASINCRONO
         if self.is_api_live {
@@ -79,11 +133,19 @@ impl eframe::App for JRayPro {
             self.loading_state = 0; 
         }
 
-        // --- DA QUI IN POI DISEGNAMO L'INTERFACCIA ---
+        // --- TOP PANEL MENU ---
         if !self.is_zen_mode {
             egui::TopBottomPanel::top("menu").show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("J-RAY PRO").strong().color(egui::Color32::from_rgb(99, 102, 241)));
+                    
+                    // Info Licenza in Alto
+                    if self.license_tier == LicenseTier::Trial {
+                        ui.label(egui::RichText::new(format!("(Trial: {}gg)", self.trial_days_left)).color(egui::Color32::from_rgb(234, 179, 8)));
+                    } else if self.license_tier == LicenseTier::Pro {
+                        ui.label(egui::RichText::new("(PRO)").color(egui::Color32::from_rgb(236, 72, 153)));
+                    }
+
                     ui.separator();
                     
                     if ui.button("📂 File A").clicked() { self.open_file(false); }
@@ -110,10 +172,8 @@ impl eframe::App for JRayPro {
                     
                     ui.separator();
                     
-                    // ✨ RADAR: INTERFACCIA TOP BAR
                     ui.label("📡 API:");
                     ui.add(egui::TextEdit::singleline(&mut self.api_url).hint_text("https://...").desired_width(150.0));
-                    // FIX: custom_width invece di desired_width
                     ui.add(egui::Slider::new(&mut self.api_interval, 0.5..=10.0).text("sec"));                    
                     let live_btn_text = if self.is_api_live { "🛑 Stop" } else { "▶ LIVE" };
                     let live_btn_color = if self.is_api_live { egui::Color32::RED } else { egui::Color32::from_rgb(34, 197, 94) }; 
@@ -163,6 +223,7 @@ impl eframe::App for JRayPro {
                 });
             });
 
+            // --- SIDE PANEL EDITOR ---
             egui::SidePanel::left("editor").width_range(300.0..=600.0).show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
@@ -216,6 +277,7 @@ impl eframe::App for JRayPro {
             });
         }
 
+        // --- FINESTRE MODALI / UTILITIES ---
         let mut show_prof = self.show_profiler;
         if show_prof {
             egui::Window::new("📊 AI Data Profiler & Anomaly Detector")
@@ -262,6 +324,7 @@ impl eframe::App for JRayPro {
         let mut expand_stack_path: Option<String> = None;
         let mut do_decode: Option<String> = None; 
 
+        // --- MOTORE GRAFICO NITRO ---
         egui::CentralPanel::default().show(ctx, |ui| {
             let (resp, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::drag());
             let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
@@ -456,6 +519,7 @@ impl eframe::App for JRayPro {
             if ui.put(egui::Rect::from_center_size(zen_pos, egui::vec2(45.0, 45.0)), egui::Button::new("🧘").rounding(25.0)).clicked() { self.is_zen_mode = !self.is_zen_mode; }
         });
 
+        // Eventi Post-Rendering (Floating Windows)
         if let Some(secret) = do_decode {
             self.decoded_payload = Some(Self::decode_secret(&secret));
         }
@@ -481,35 +545,12 @@ impl eframe::App for JRayPro {
         }
 
         if self.loading_state == 1 {
-            egui::Area::new(egui::Id::new("loading_overlay"))
-                .order(egui::Order::Foreground)
-                .fixed_pos(egui::pos2(0.0, 0.0))
+            egui::Window::new("⏳ ESTRAZIONE CARTE...")
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .collapsible(false)
                 .show(ctx, |ui| {
-                    let screen_rect = ctx.screen_rect();
-                    ui.interact(screen_rect, egui::Id::new("blocker"), egui::Sense::click());
-                    ui.painter().rect_filled(screen_rect, 0.0, egui::Color32::from_black_alpha(220));
-
-                    let popup_size = egui::vec2(450.0, 160.0);
-                    let popup_rect = egui::Rect::from_center_size(screen_rect.center(), popup_size);
-                    
-                    ui.allocate_ui_at_rect(popup_rect, |ui| {
-                        egui::Frame::popup(ui.style())
-                            .rounding(12.0)
-                            .fill(egui::Color32::from_rgb(18, 18, 22))
-                            .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(236, 72, 153)))
-                            .inner_margin(25.0)
-                            .show(ui, |ui| {
-                                ui.centered_and_justified(|ui| {
-                                    ui.vertical_centered(|ui| {
-                                        ui.heading(egui::RichText::new("⏳ ESTRAZIONE CARTE...").size(28.0).color(egui::Color32::from_rgb(236, 72, 153)));
-                                        ui.add_space(15.0);
-                                        ui.label(egui::RichText::new("Ricalcolo del Grafo 3D in corso.\nNon cliccare, ci vorrà qualche istante...").size(16.0).color(egui::Color32::LIGHT_GRAY));
-                                    });
-                                });
-                            });
-                    });
+                    ui.label("Ricalcolo del Grafo 3D in corso.\nNon cliccare, ci vorrà qualche istante...");
                 });
-
             self.loading_state = 2;
             ctx.request_repaint(); 
         }

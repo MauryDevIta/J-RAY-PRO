@@ -1,4 +1,4 @@
-use crate::app::{DiffStatus, FieldStats, JRayPro, Node};
+use crate::app::{DiffStatus, FieldStats, JRayPro, Node, LicenseTier};
 use eframe::egui;
 use jsonpath_rust::JsonPathQuery;
 use serde_json::Value;
@@ -552,5 +552,57 @@ impl JRayPro {
                 }
             }
         }
+    }
+
+    // ✨ SISTEMA DI LICENZE: Inizializzazione
+    pub fn init_license_system() -> (LicenseTier, i64, String) {
+        use chrono::{DateTime, Utc};
+        use crate::app::LicenseTier;
+
+        // 1. Recupera ID unico del PC (o usa un fallback)
+        let m_id = machine_uid::get().unwrap_or_else(|_| "unknown_device".to_string());
+
+        // 2. Trova la cartella di sistema sicura (AppData su Win, .config su Mac)
+        let proj_dirs = directories::ProjectDirs::from("com", "jray", "jraypro").unwrap();
+        let config_dir = proj_dirs.config_dir();
+        
+        // 3. Controllo se esiste già una licenza PAGATA e SALVATA
+        let license_file = config_dir.join("license.key");
+        if let Ok(content) = std::fs::read_to_string(&license_file) {
+            if content.starts_with("PRO:") {
+                return (LicenseTier::Pro, 0, m_id);
+            } else if content.starts_with("PERSONAL:") {
+                return (LicenseTier::Personal, 0, m_id);
+            }
+        }
+
+        // 4. Se non c'è licenza, controlliamo la TRIAL di 14 giorni
+        let trial_file = config_dir.join("vault.bin");
+
+        if !trial_file.exists() {
+            // PRIMO AVVIO ASSOLUTO: Creiamo il file con la data di oggi
+            std::fs::create_dir_all(config_dir).ok();
+            let now = Utc::now().to_rfc3339();
+            std::fs::write(&trial_file, now).ok();
+            return (LicenseTier::Trial, 14, m_id);
+        } else {
+            // AVVII SUCCESSIVI: Leggiamo la data e calcoliamo i giorni passati
+            if let Ok(content) = std::fs::read_to_string(&trial_file) {
+                if let Ok(first_run) = DateTime::parse_from_rfc3339(&content) {
+                    let elapsed = Utc::now().signed_duration_since(first_run.with_timezone(&Utc));
+                    let days_passed = elapsed.num_days();
+                    let remaining = -5; // HACK: Facciamo finta che siano passati 19 giorni
+
+                    if remaining <= 0 {
+                        return (LicenseTier::Expired, 0, m_id);
+                    } else {
+                        return (LicenseTier::Trial, remaining, m_id);
+                    }
+                }
+            }
+        }
+        
+        // Fail-safe: se qualcosa va storto nei file, scade
+        (LicenseTier::Expired, 0, m_id)
     }
 }

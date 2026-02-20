@@ -5,6 +5,15 @@ use std::collections::HashMap;
 #[derive(PartialEq, Clone, Copy)]
 pub enum DiffStatus { Normal, Added, Removed, Modified }
 
+// ✨ 1. DICHIARA L'ENUM QUI FUORI!
+#[derive(PartialEq, PartialOrd, Clone, Copy, Debug)]
+pub enum LicenseTier { 
+    Expired = 0,  // Nessun potere
+    Personal = 1, // Potere base
+    Trial = 2,    // Potere quasi massimo temporaneo
+    Pro = 3       // Potere assoluto
+}
+
 pub struct Node {
     pub label: Box<str>,
     pub value: String,
@@ -63,6 +72,13 @@ pub struct JRayPro {
     pub is_api_live: bool,
     pub last_api_fetch: Option<std::time::Instant>,
     pub api_receiver: Option<std::sync::mpsc::Receiver<String>>,
+
+    // ✨ LICENSING & TRIAL: Variabili per il controllo
+    pub license_key: String,
+    pub license_tier: LicenseTier, // Ora usa l'enum definito sopra
+    pub show_license_window: bool,
+    pub machine_id: String,
+    pub trial_days_left: i64,
 }
 
 impl Default for JRayPro {
@@ -94,12 +110,20 @@ impl Default for JRayPro {
             loading_state: 0,
             pending_path: None,
             decoded_payload: None,
-            // ✨ RADAR: Valori di default
-            api_url: "http://api.open-notify.org/iss-now.json".to_string(), // Link di test geniale
-            api_interval: 2.0, // Aggiorna ogni 2 secondi
+            
+            // ✨ RADAR
+            api_url: "http://api.open-notify.org/iss-now.json".to_string(),
+            api_interval: 2.0, 
             is_api_live: false,
             last_api_fetch: None,
             api_receiver: None,
+            
+            // ✨ LICENSING
+            license_key: "".to_string(),
+            license_tier: LicenseTier::Trial, // Lo sovrascriveremo in main.rs
+            show_license_window: false,
+            machine_id: "unknown".to_string(),
+            trial_days_left: 14,
         }
     }
 }
