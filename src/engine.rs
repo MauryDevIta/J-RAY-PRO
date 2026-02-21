@@ -10,12 +10,8 @@ impl JRayPro {
 
     // ✨ X-RAY ALGORITHM: Riconosce i Token ad occhio nudo
     pub fn is_likely_secret(s: &str) -> bool {
-        // Rimuoviamo le virgolette " " aggiunte da serde_json
         let clean_s = s.trim_matches('"');
-        
-        // I token seri sono lunghi e senza spazi
         if clean_s.len() < 20 || clean_s.contains(' ') { return false; }
-        // "ey..." è la codifica Base64 per '{"', usata nel 99% dei JWT e JSON encodati
         clean_s.starts_with("ey") || clean_s.split('.').count() == 3
     }
 
@@ -23,14 +19,10 @@ impl JRayPro {
     pub fn decode_secret(s: &str) -> String {
         use base64::{Engine as _, engine::general_purpose};
         
-        // Rimuoviamo le virgolette " " anche prima di decriptare
         let clean_s = s.trim_matches('"');
-        
-        // Se è un JWT (3 parti), prendiamo il payload (la parte in mezzo)
         let parts: Vec<&str> = clean_s.split('.').collect();
         let target = if parts.len() == 3 { parts[1] } else { clean_s };
         
-        // Proviamo a decriptare con i due standard più usati (URL-Safe e Normale)
         let decoded = general_purpose::URL_SAFE_NO_PAD.decode(target)
             .or_else(|_| general_purpose::STANDARD.decode(target))
             .or_else(|_| general_purpose::STANDARD_NO_PAD.decode(target));
@@ -38,7 +30,6 @@ impl JRayPro {
         match decoded {
             Ok(bytes) => {
                 if let Ok(utf8) = String::from_utf8(bytes) {
-                    // Se dentro c'è un JSON, lo rendiamo bellissimo da leggere
                     if let Ok(val) = serde_json::from_str::<Value>(&utf8) {
                         serde_json::to_string_pretty(&val).unwrap_or(utf8)
                     } else {
@@ -559,7 +550,7 @@ impl JRayPro {
         use chrono::{DateTime, Utc};
         use crate::app::LicenseTier;
 
-        // 1. Recupera ID unico del PC (o usa un fallback)
+        // 1. Recupera ID unico del PC
         let m_id = machine_uid::get().unwrap_or_else(|_| "unknown_device".to_string());
 
         // 2. Trova la cartella di sistema sicura (AppData su Win, .config su Mac)
@@ -591,7 +582,9 @@ impl JRayPro {
                 if let Ok(first_run) = DateTime::parse_from_rfc3339(&content) {
                     let elapsed = Utc::now().signed_duration_since(first_run.with_timezone(&Utc));
                     let days_passed = elapsed.num_days();
-                    let remaining = -5; // HACK: Facciamo finta che siano passati 19 giorni
+                    
+                    // FONDAMENTALE: Calcolo corretto dei giorni rimanenti!
+                    let remaining = 14 - days_passed;
 
                     if remaining <= 0 {
                         return (LicenseTier::Expired, 0, m_id);
@@ -604,5 +597,82 @@ impl JRayPro {
         
         // Fail-safe: se qualcosa va storto nei file, scade
         (LicenseTier::Expired, 0, m_id)
+    }
+
+    // 🛡️ MOTORE DI ATTIVAZIONE: Dialoga con Lemon Squeezy
+    pub fn activate_license_online(&mut self) {
+        // Definiamo le strutture qui dentro con i nomi corretti per Serde
+        #[derive(serde::Deserialize, Debug)]
+        struct LemonMeta {
+            variant_name: String,
+        }
+        #[derive(serde::Deserialize, Debug)]
+        struct LemonResponse {
+            activated: bool,
+            error: Option<String>,
+            meta: Option<LemonMeta>,
+        }
+
+        let key = self.license_key.trim().to_string();
+        if key.is_empty() {
+            self.status_msg = "❌ Inserisci una chiave!".to_string();
+            return;
+        }
+
+        self.status_msg = "📡 Verificando...".to_string();
+
+        let client = reqwest::blocking::Client::new();
+        
+        // Creiamo il corpo della richiesta come JSON
+        let body = serde_json::json!({
+            "license_key": key,
+            "instance_name": self.machine_id
+        });
+
+        // Usiamo .json(&body) invece di .form()
+        let res = client.post("https://api.lemonsqueezy.com/v1/licenses/activate")
+            .json(&body) 
+            .send();
+
+        match res {
+            Ok(response) => {
+                // Debug: stampiamo il codice di stato se qualcosa va storto
+                if !response.status().is_success() {
+                    println!("Errore Server: {}", response.status());
+                }
+
+                match response.json::<LemonResponse>() {
+                    Ok(data) => {
+                        if data.activated {
+                            let variant = data.meta.map(|m| m.variant_name).unwrap_or_else(|| "Personal".to_string());
+                            let is_pro = variant.to_lowercase().contains("pro");
+                            
+                            self.license_tier = if is_pro { crate::app::LicenseTier::Pro } else { crate::app::LicenseTier::Personal };
+                            
+                            // Salvataggio su file
+                            if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
+                                let config_dir = proj_dirs.config_dir();
+                                let _ = std::fs::create_dir_all(config_dir);
+                                let path = config_dir.join("license.key");
+                                let prefix = if is_pro { "PRO:" } else { "PERSONAL:" };
+                                let _ = std::fs::write(path, format!("{}{}", prefix, key));
+                            }
+                            self.status_msg = format!("✅ Attivato: {}", variant);
+                        } else {
+                            let err_msg = data.error.unwrap_or_else(|| "Chiave non valida".to_string());
+                            self.status_msg = format!("❌ {}", err_msg);
+                        }
+                    },
+                    Err(e) => {
+                        self.status_msg = "❌ Errore formato risposta".to_string();
+                        println!("Dettaglio errore JSON: {:?}", e);
+                    }
+                }
+            },
+            Err(e) => {
+                self.status_msg = "❌ Errore connessione".to_string();
+                println!("Errore Reqwest: {:?}", e);
+            },
+        }
     }
 }

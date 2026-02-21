@@ -1,0 +1,54 @@
+﻿cargo :     Checking 
+reqwest v0.13.2
+In riga:1 car:1
++ cargo check 2>&1 | 
+Out-String | Out-File 
+-Encoding utf8 
+errors_utf8.t ...
++ ~~~~~~~~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (    Checki   
+ ng reqwest v0.13.    
+2:String) [], Rem    
+oteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+    Checking 
+j-ray-pro v0.1.0 (C:\U
+sers\genti\OneDrive\De
+sktop\j-rayWindows\j-r
+ay-pro)
+warning: field 
+`show_license_window` 
+is never read
+  --> src\app.rs:79:9
+   |
+38 | pub struct 
+JRayPro {
+   |            
+------- field in this 
+struct
+...
+79 |     pub 
+show_license_window: 
+bool,
+   |         
+^^^^^^^^^^^^^^^^^^^
+   |
+   = note: 
+`#[warn(dead_code)]` 
+(part of 
+`#[warn(unused)]`) on 
+by default
+
+warning: `j-ray-pro` 
+(bin "j-ray-pro") 
+generated 1 warning
+    Finished `dev` 
+profile [unoptimized 
++ debuginfo] 
+target(s) in 1.64s
+
