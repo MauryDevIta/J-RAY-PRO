@@ -36,6 +36,7 @@ pub struct FieldStats {
 }
 
 pub struct JRayPro {
+    pub eula_accepted: bool, // <--- LA VARIABILE EULA
     pub json_input: String,
     pub json_input_b: String,
     pub active_tab: usize,
@@ -83,7 +84,16 @@ pub struct JRayPro {
 
 impl Default for JRayPro {
     fn default() -> Self {
+        // --- LETTURA EULA ALL'AVVIO ---
+        let mut is_eula_accepted = false;
+        if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
+            let eula_path = proj_dirs.config_dir().join("eula.accepted");
+            is_eula_accepted = eula_path.exists();
+        }
+        // ------------------------------
+
         Self {
+            eula_accepted: is_eula_accepted, // Passiamo il risultato qui
             json_input: r#"{"app": "J-RAY PRO", "features": ["Deep Code Gen", "Minimap", "Folding"]}"#.to_string(),
             json_input_b: r#"{"app": "J-RAY PRO", "features": ["Visual Diff", "Minimap", "Folding"]}"#.to_string(),
             active_tab: 0,

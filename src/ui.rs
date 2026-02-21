@@ -5,6 +5,56 @@ use similar::{ChangeTag, TextDiff};
 impl eframe::App for JRayPro {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
+        // --- 🛑 SCHERMATA EULA (BLOCCO INIZIALE CON FILE ESTERNO) ---
+        if !self.eula_accepted {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(12, 12, 15));
+                
+                egui::Window::new("📜 END USER LICENSE AGREEMENT (EULA)")
+                    .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                    .collapsible(false)
+                    .resizable(false)
+                    .default_size([700.0, 550.0]) // Finestra un po' più grande
+                    .show(ctx, |ui| {
+                        ui.add_space(10.0);
+                        ui.label(egui::RichText::new("Before using J-RAY PRO, you must read and accept the Terms of Service.").color(egui::Color32::LIGHT_GRAY));
+                        ui.add_space(15.0);
+                        
+                        // Il Box che permette di scorrere all'infinito!
+                        let scroll_height = ui.available_height() - 60.0; // Lascia spazio per i bottoni sotto
+                        egui::ScrollArea::vertical().max_height(scroll_height).show(ui, |ui| {
+                            
+                            // 🪄 MAGIA RUST: Legge il file EULA.txt e lo infila nell'exe!
+                            let eula_text = include_str!("EULA.txt");
+                            
+                            ui.label(egui::RichText::new(eula_text).size(13.0).color(egui::Color32::from_gray(180)).monospace());
+                        });
+
+                        ui.add_space(20.0);
+                        ui.separator();
+                        ui.add_space(15.0);
+
+                        ui.horizontal(|ui| {
+                            if ui.button(egui::RichText::new("❌ Decline & Exit").size(16.0).color(egui::Color32::from_rgb(239, 68, 68))).clicked() {
+                                std::process::exit(0);
+                            }
+                            
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if ui.button(egui::RichText::new("✅ I Accept the Terms").size(16.0).color(egui::Color32::from_rgb(34, 197, 94))).clicked() {
+                                    if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
+                                        let _ = std::fs::create_dir_all(proj_dirs.config_dir());
+                                        let _ = std::fs::write(proj_dirs.config_dir().join("eula.accepted"), "true");
+                                    }
+                                    self.eula_accepted = true;
+                                }
+                            });
+                        });
+                    });
+            });
+            return; 
+        }
+        // --- FINE SCHERMATA EULA ---
+
         // --- 🛑 MODALITÀ EXPIRED (BLOCCO TOTALE E CENTRATO) ---
         if self.license_tier == LicenseTier::Expired {
             egui::CentralPanel::default().show(ctx, |ui| {
