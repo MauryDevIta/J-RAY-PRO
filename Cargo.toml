@@ -17,3 +17,6 @@ chrono = "0.4.43"
 directories = "6.0.0"
 machine-uid = "0.5.4"
 open = "5.3.3"
+sha2 = "0.10"
+sysinfo = "0.30" # 🛡️ Per leggere CPU e RAM (Hardware Fingerprinting)
+obfstr = "0.4"   # 🛡️ Per nascondere le password ai disassemblatori

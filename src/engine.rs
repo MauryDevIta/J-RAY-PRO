@@ -545,63 +545,105 @@ impl JRayPro {
         }
     }
 
-    // ✨ SISTEMA DI LICENZE: Inizializzazione
+    // 🛡️ DIFESA 3: HARDWARE FINGERPRINTING ESTREMO
+    pub fn get_advanced_hardware_id() -> String {
+        use sysinfo::System;
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        
+        let cpu = sys.cpus().first().map(|c| c.brand()).unwrap_or("UnknownCPU");
+        let mem = sys.total_memory(); 
+        let host = System::host_name().unwrap_or("UnknownHost".to_string());
+        let m_uid = machine_uid::get().unwrap_or("UnknownUID".to_string());
+        
+        let raw_id = format!("{}-{}-{}-{}", m_uid, cpu, mem, host);
+        
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(raw_id);
+        format!("{:x}", hasher.finalize())
+    }
+
+    // 🛡️ DIFESA 1: STRING OBFUSCATION + FIRMA DIGITALE
+    pub fn generate_security_signature(data: &str) -> String {
+        use sha2::{Sha256, Digest};
+        
+        // Risolto Errore E0716 usando .to_string() per allocare la stringa decriptata
+        let secret_salt = obfstr::obfstr!("JRay_Pr0_Sup3rS3cr3t_K3y_2026!@#_N0_Cr4ck").to_string(); 
+        
+        let mut hasher = Sha256::new();
+        hasher.update(format!("{}|{}", data, secret_salt));
+        format!("{:x}", hasher.finalize())
+    }
+
+    // ✨ SISTEMA DI LICENZE ULTRA-BLINDATO
     pub fn init_license_system() -> (LicenseTier, i64, String) {
         use chrono::{DateTime, Utc};
         use crate::app::LicenseTier;
 
-        // 1. Recupera ID unico del PC
-        let m_id = machine_uid::get().unwrap_or_else(|_| "unknown_device".to_string());
-
-        // 2. Trova la cartella di sistema sicura (AppData su Win, .config su Mac)
+        let m_id = Self::get_advanced_hardware_id();
         let proj_dirs = directories::ProjectDirs::from("com", "jray", "jraypro").unwrap();
         let config_dir = proj_dirs.config_dir();
         
-        // 3. Controllo se esiste già una licenza PAGATA e SALVATA
         let license_file = config_dir.join("license.key");
         if let Ok(content) = std::fs::read_to_string(&license_file) {
-            if content.starts_with("PRO:") {
-                return (LicenseTier::Pro, 0, m_id);
-            } else if content.starts_with("PERSONAL:") {
-                return (LicenseTier::Personal, 0, m_id);
+            let parts: Vec<&str> = content.split('|').collect();
+            
+            if parts.len() == 4 {
+                let saved_tier = parts[0];
+                let saved_key = parts[1];
+                let saved_m_id = parts[2];
+                let saved_sig = parts[3];
+                
+                let expected_payload = format!("{}|{}|{}", saved_tier, saved_key, saved_m_id);
+                let expected_sig = Self::generate_security_signature(&expected_payload);
+
+                // 🛡️ DIFESA 2 (ENTANGLEMENT LEGGERO)
+                if saved_sig == expected_sig && saved_m_id == m_id {
+                    if saved_tier == "PRO" { return (LicenseTier::Pro, 0, m_id); }
+                    if saved_tier == "PERSONAL" { return (LicenseTier::Personal, 0, m_id); }
+                } else {
+                    println!("🚨 MANOMISSIONE O CLONAZIONE RILEVATA! BOOM!");
+                }
             }
         }
 
-        // 4. Se non c'è licenza, controlliamo la TRIAL di 14 giorni
+        // TRIAL SYSTEM BLINDATO
         let trial_file = config_dir.join("vault.bin");
 
         if !trial_file.exists() {
-            // PRIMO AVVIO ASSOLUTO: Creiamo il file con la data di oggi
             std::fs::create_dir_all(config_dir).ok();
             let now = Utc::now().to_rfc3339();
-            std::fs::write(&trial_file, now).ok();
+            
+            let trial_payload = format!("{}|{}", now, m_id);
+            let trial_sig = Self::generate_security_signature(&trial_payload);
+            std::fs::write(&trial_file, format!("{}|{}", trial_payload, trial_sig)).ok();
+            
             return (LicenseTier::Trial, 14, m_id);
         } else {
-            // AVVII SUCCESSIVI: Leggiamo la data e calcoliamo i giorni passati
             if let Ok(content) = std::fs::read_to_string(&trial_file) {
-                if let Ok(first_run) = DateTime::parse_from_rfc3339(&content) {
-                    let elapsed = Utc::now().signed_duration_since(first_run.with_timezone(&Utc));
-                    let days_passed = elapsed.num_days();
-                    
-                    // FONDAMENTALE: Calcolo corretto dei giorni rimanenti!
-                    let remaining = 14 - days_passed;
+                let parts: Vec<&str> = content.split('|').collect();
+                
+                if parts.len() == 3 {
+                    let expected_payload = format!("{}|{}", parts[0], parts[1]);
+                    let expected_sig = Self::generate_security_signature(&expected_payload);
 
-                    if remaining <= 0 {
-                        return (LicenseTier::Expired, 0, m_id);
-                    } else {
-                        return (LicenseTier::Trial, remaining, m_id);
+                    if parts[2] == expected_sig && parts[1] == m_id {
+                        if let Ok(first_run) = DateTime::parse_from_rfc3339(parts[0]) {
+                            let elapsed = Utc::now().signed_duration_since(first_run.with_timezone(&Utc));
+                            let remaining = 14 - elapsed.num_days();
+                            if remaining > 0 { return (LicenseTier::Trial, remaining, m_id); }
+                        }
                     }
                 }
             }
         }
         
-        // Fail-safe: se qualcosa va storto nei file, scade
         (LicenseTier::Expired, 0, m_id)
     }
 
     // 🛡️ MOTORE DI ATTIVAZIONE: Dialoga con Lemon Squeezy
     pub fn activate_license_online(&mut self) {
-        // Definiamo le strutture qui dentro con i nomi corretti per Serde
         #[derive(serde::Deserialize, Debug)]
         struct LemonMeta {
             variant_name: String,
@@ -623,20 +665,17 @@ impl JRayPro {
 
         let client = reqwest::blocking::Client::new();
         
-        // Creiamo il corpo della richiesta come JSON
         let body = serde_json::json!({
             "license_key": key,
             "instance_name": self.machine_id
         });
 
-        // Usiamo .json(&body) invece di .form()
         let res = client.post("https://api.lemonsqueezy.com/v1/licenses/activate")
             .json(&body) 
             .send();
 
         match res {
             Ok(response) => {
-                // Debug: stampiamo il codice di stato se qualcosa va storto
                 if !response.status().is_success() {
                     println!("Errore Server: {}", response.status());
                 }
@@ -649,14 +688,22 @@ impl JRayPro {
                             
                             self.license_tier = if is_pro { crate::app::LicenseTier::Pro } else { crate::app::LicenseTier::Personal };
                             
-                            // Salvataggio su file
+                            // Salvataggio su file con FIRMA DIGITALE
                             if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
                                 let config_dir = proj_dirs.config_dir();
                                 let _ = std::fs::create_dir_all(config_dir);
                                 let path = config_dir.join("license.key");
-                                let prefix = if is_pro { "PRO:" } else { "PERSONAL:" };
-                                let _ = std::fs::write(path, format!("{}{}", prefix, key));
+                                
+                                let prefix = if is_pro { "PRO" } else { "PERSONAL" };
+                                
+                                // Costruiamo payload + Firma Anti-Manomissione
+                                let payload = format!("{}|{}|{}", prefix, key, self.machine_id);
+                                let signature = Self::generate_security_signature(&payload);
+                                
+                                let final_save = format!("{}|{}", payload, signature);
+                                let _ = std::fs::write(path, final_save);
                             }
+                            
                             self.status_msg = format!("✅ Attivato: {}", variant);
                         } else {
                             let err_msg = data.error.unwrap_or_else(|| "Chiave non valida".to_string());
