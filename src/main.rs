@@ -1,3 +1,6 @@
+// Impedisce l'apertura della console (CMD) su Windows
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod app;
 mod engine;
 mod ui;

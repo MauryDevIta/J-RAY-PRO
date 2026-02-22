@@ -1,85 +1,85 @@
-name: Build & Release J-RAY PRO
+name: Compilazione Multi-Piattaforma (Mac, Windows, Linux)
 
-# 🛑 Parte SOLO quando crei un tag (es. v1.0.0, v1.1.2, ecc.)
+# 🛑 ATTENZIONE: Compila SOLO quando pushi un tag (es. v1.0.0). Ignora i normali push su main.
 on:
   push:
     tags:
       - 'v*'
 
 jobs:
-  # 🪟 COMPILAZIONE WINDOWS
-  build-windows:
-    name: 🪟 Build Windows
-    runs-on: windows-latest
-    steps:
-    - name: 📥 Checkout Codice
-      uses: actions/checkout@v4
-    
-    - name: ⚙️ Installa Rust
-      uses: dtolnay/rust-toolchain@stable
-        
-    - name: 🚀 Compila il motore
-      run: cargo build --release
-      
-    - name: 🏷️ Rinomina file con Versione
-      shell: bash
-      run: mv target/release/j-ray-pro.exe J-RAY-PRO-Windows-${{ github.ref_name }}.exe
-      
-    - name: 📦 Prepara Artifact finale
-      uses: actions/upload-artifact@v4
-      with:
-        name: J-RAY-PRO-Windows-${{ github.ref_name }}
-        path: J-RAY-PRO-Windows-${{ github.ref_name }}.exe
-
   # 🍎 COMPILAZIONE MAC (Apple Silicon)
   build-mac:
     name: 🍏 Build macOS
     runs-on: macos-latest
     steps:
-    - name: 📥 Checkout Codice
+    - name: 📥 Scarica il codice dal tuo caveau
       uses: actions/checkout@v4
     
-    - name: ⚙️ Installa Rust (Target Silicon)
+    - name: ⚙️ Installa Rust sul Mac virtuale
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: aarch64-apple-darwin
         
-    - name: 🚀 Compila il motore
+    - name: 🚀 Compila il motore J-RAY PRO
       run: cargo build --release --target aarch64-apple-darwin
 
     - name: 🏷️ Rinomina file con Versione
-      run: mv target/aarch64-apple-darwin/release/j-ray-pro J-RAY-PRO-macOS-Silicon-${{ github.ref_name }}
+      run: mv target/aarch64-apple-darwin/release/j-ray-pro target/aarch64-apple-darwin/release/J-RAY-PRO-Mac-Silicon-${{ github.ref_name }}
       
-    - name: 📦 Prepara Artifact finale
+    - name: 📦 Prepara il file per il download
       uses: actions/upload-artifact@v4
       with:
-        name: J-RAY-PRO-macOS-Silicon-${{ github.ref_name }}
-        path: J-RAY-PRO-macOS-Silicon-${{ github.ref_name }}
+        name: J-RAY-PRO-Mac-Silicon-${{ github.ref_name }}
+        path: target/aarch64-apple-darwin/release/J-RAY-PRO-Mac-Silicon-${{ github.ref_name }}
+
+  # 🪟 COMPILAZIONE WINDOWS
+  build-windows:
+    name: 🪟 Build Windows
+    runs-on: windows-latest
+    steps:
+    - name: 📥 Scarica il codice dal tuo caveau
+      uses: actions/checkout@v4
+    
+    - name: ⚙️ Installa Rust su Windows virtuale
+      uses: dtolnay/rust-toolchain@stable
+        
+    - name: 🚀 Compila il motore J-RAY PRO
+      run: cargo build --release
+
+    - name: 🏷️ Rinomina file con Versione
+      shell: bash
+      run: mv target/release/j-ray-pro.exe target/release/J-RAY-PRO-Windows-${{ github.ref_name }}.exe
+      
+    - name: 📦 Prepara il file per il download
+      uses: actions/upload-artifact@v4
+      with:
+        name: J-RAY-PRO-Windows-${{ github.ref_name }}
+        path: target/release/J-RAY-PRO-Windows-${{ github.ref_name }}.exe
 
   # 🐧 COMPILAZIONE LINUX (Ubuntu)
   build-linux:
     name: 🐧 Build Linux (Ubuntu)
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Checkout Codice
+    - name: 📥 Scarica il codice dal tuo caveau
       uses: actions/checkout@v4
 
-    - name: 🛠️ Installa dipendenze grafiche OS
+    - name: 🛠️ Installa librerie grafiche per Linux
       run: |
         sudo apt-get update
         sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev pkg-config fontconfig libfontconfig1-dev
     
-    - name: ⚙️ Installa Rust
+    - name: ⚙️ Installa Rust su Ubuntu virtuale
       uses: dtolnay/rust-toolchain@stable
         
-    - name: 🚀 Compila il motore
+    - name: 🚀 Compila il motore J-RAY PRO
       run: cargo build --release
 
     - name: 🏷️ Rinomina file con Versione
-      run: mv target/release/j-ray-pro J-RAY-PRO-Linux-${{ github.ref_name }}
+      run: mv target/release/j-ray-pro target/release/J-RAY-PRO-Linux-${{ github.ref_name }}
       
-    - name: 📦 Prepara Artifact finale
+    - name: 📦 Prepara il file per il download
       uses: actions/upload-artifact@v4
       with:
         name: J-RAY-PRO-Linux-${{ github.ref_name }}
-        path: J-RAY-PRO-Linux-${{ github.ref_name }}
+        path: target/release/J-RAY-PRO-Linux-${{ github.ref_name }}
