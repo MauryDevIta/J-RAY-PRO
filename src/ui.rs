@@ -481,11 +481,11 @@ impl eframe::App for JRayPro {
                         ui.horizontal(|ui| {
                             ui.add_space(70.0); // Centratura
                             if ui.link("📄 EULA").clicked() {
-                                let _ = open::that("https://tuo-sito.com/eula");
+                                let _ = open::that("https://j-ray.vercel.app/terms");
                             }
                             ui.label(egui::RichText::new(" • ").color(egui::Color32::DARK_GRAY));
                             if ui.link("🔒 Privacy Policy").clicked() {
-                                let _ = open::that("https://tuo-sito.com/privacy");
+                                let _ = open::that("https://j-ray.vercel.app/privacy");
                             }
                         });
 
