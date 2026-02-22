@@ -1,73 +1,85 @@
-name: Compilazione Multi-Piattaforma (Mac, Windows, Linux)
+name: Build & Release J-RAY PRO
 
+# 🛑 Parte SOLO quando crei un tag (es. v1.0.0, v1.1.2, ecc.)
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - 'v*'
 
 jobs:
-  # 🍎 COMPILAZIONE MAC (Apple Silicon)
-  build-mac:
-    name: 🍏 Build macOS
-    runs-on: macos-latest
-    steps:
-    - name: 📥 Scarica il codice dal tuo caveau
-      uses: actions/checkout@v4
-    
-    - name: ⚙️ Installa Rust sul Mac virtuale
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: aarch64-apple-darwin
-        
-    - name: 🚀 Compila il motore J-RAY PRO
-      run: cargo build --release --target aarch64-apple-darwin
-      
-    - name: 📦 Prepara il file per il download
-      uses: actions/upload-artifact@v4
-      with:
-        name: J-RAY-PRO-Mac-Silicon
-        path: target/aarch64-apple-darwin/release/j-ray-pro
-
   # 🪟 COMPILAZIONE WINDOWS
   build-windows:
     name: 🪟 Build Windows
     runs-on: windows-latest
     steps:
-    - name: 📥 Scarica il codice dal tuo caveau
+    - name: 📥 Checkout Codice
       uses: actions/checkout@v4
     
-    - name: ⚙️ Installa Rust su Windows virtuale
+    - name: ⚙️ Installa Rust
       uses: dtolnay/rust-toolchain@stable
         
-    - name: 🚀 Compila il motore J-RAY PRO
+    - name: 🚀 Compila il motore
       run: cargo build --release
       
-    - name: 📦 Prepara il file per il download
+    - name: 🏷️ Rinomina file con Versione
+      shell: bash
+      run: mv target/release/j-ray-pro.exe J-RAY-PRO-Windows-${{ github.ref_name }}.exe
+      
+    - name: 📦 Prepara Artifact finale
       uses: actions/upload-artifact@v4
       with:
-        name: J-RAY-PRO-Windows
-        path: target/release/j-ray-pro.exe
+        name: J-RAY-PRO-Windows-${{ github.ref_name }}
+        path: J-RAY-PRO-Windows-${{ github.ref_name }}.exe
+
+  # 🍎 COMPILAZIONE MAC (Apple Silicon)
+  build-mac:
+    name: 🍏 Build macOS
+    runs-on: macos-latest
+    steps:
+    - name: 📥 Checkout Codice
+      uses: actions/checkout@v4
+    
+    - name: ⚙️ Installa Rust (Target Silicon)
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-apple-darwin
+        
+    - name: 🚀 Compila il motore
+      run: cargo build --release --target aarch64-apple-darwin
+
+    - name: 🏷️ Rinomina file con Versione
+      run: mv target/aarch64-apple-darwin/release/j-ray-pro J-RAY-PRO-macOS-Silicon-${{ github.ref_name }}
+      
+    - name: 📦 Prepara Artifact finale
+      uses: actions/upload-artifact@v4
+      with:
+        name: J-RAY-PRO-macOS-Silicon-${{ github.ref_name }}
+        path: J-RAY-PRO-macOS-Silicon-${{ github.ref_name }}
 
   # 🐧 COMPILAZIONE LINUX (Ubuntu)
   build-linux:
     name: 🐧 Build Linux (Ubuntu)
     runs-on: ubuntu-latest
     steps:
-    - name: 📥 Scarica il codice dal tuo caveau
+    - name: 📥 Checkout Codice
       uses: actions/checkout@v4
 
-    - name: 🛠️ Installa librerie grafiche per Linux
+    - name: 🛠️ Installa dipendenze grafiche OS
       run: |
         sudo apt-get update
         sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev pkg-config fontconfig libfontconfig1-dev
     
-    - name: ⚙️ Installa Rust su Ubuntu virtuale
+    - name: ⚙️ Installa Rust
       uses: dtolnay/rust-toolchain@stable
         
-    - name: 🚀 Compila il motore J-RAY PRO
+    - name: 🚀 Compila il motore
       run: cargo build --release
+
+    - name: 🏷️ Rinomina file con Versione
+      run: mv target/release/j-ray-pro J-RAY-PRO-Linux-${{ github.ref_name }}
       
-    - name: 📦 Prepara il file per il download
+    - name: 📦 Prepara Artifact finale
       uses: actions/upload-artifact@v4
       with:
-        name: J-RAY-PRO-Linux
-        path: target/release/j-ray-pro
+        name: J-RAY-PRO-Linux-${{ github.ref_name }}
+        path: J-RAY-PRO-Linux-${{ github.ref_name }}
