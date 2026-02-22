@@ -1,13 +1,14 @@
-name: Compilazione Mac (Apple Silicon)
+name: Compilazione Multi-Piattaforma (Mac, Windows, Linux)
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
+  # 🍎 COMPILAZIONE MAC (Apple Silicon)
   build-mac:
+    name: 🍏 Build macOS
     runs-on: macos-latest
-
     steps:
     - name: 📥 Scarica il codice dal tuo caveau
       uses: actions/checkout@v4
@@ -25,3 +26,48 @@ jobs:
       with:
         name: J-RAY-PRO-Mac-Silicon
         path: target/aarch64-apple-darwin/release/j-ray-pro
+
+  # 🪟 COMPILAZIONE WINDOWS
+  build-windows:
+    name: 🪟 Build Windows
+    runs-on: windows-latest
+    steps:
+    - name: 📥 Scarica il codice dal tuo caveau
+      uses: actions/checkout@v4
+    
+    - name: ⚙️ Installa Rust su Windows virtuale
+      uses: dtolnay/rust-toolchain@stable
+        
+    - name: 🚀 Compila il motore J-RAY PRO
+      run: cargo build --release
+      
+    - name: 📦 Prepara il file per il download
+      uses: actions/upload-artifact@v4
+      with:
+        name: J-RAY-PRO-Windows
+        path: target/release/j-ray-pro.exe
+
+  # 🐧 COMPILAZIONE LINUX (Ubuntu)
+  build-linux:
+    name: 🐧 Build Linux (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Scarica il codice dal tuo caveau
+      uses: actions/checkout@v4
+
+    - name: 🛠️ Installa librerie grafiche per Linux
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev pkg-config fontconfig libfontconfig1-dev
+    
+    - name: ⚙️ Installa Rust su Ubuntu virtuale
+      uses: dtolnay/rust-toolchain@stable
+        
+    - name: 🚀 Compila il motore J-RAY PRO
+      run: cargo build --release
+      
+    - name: 📦 Prepara il file per il download
+      uses: actions/upload-artifact@v4
+      with:
+        name: J-RAY-PRO-Linux
+        path: target/release/j-ray-pro
