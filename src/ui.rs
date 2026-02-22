@@ -404,13 +404,14 @@ impl eframe::App for JRayPro {
         self.show_profiler = show_prof;
 
         // --- FINESTRA LICENZA ---
+        // --- FINESTRA LICENZA ---
         let mut show_lic = self.show_license_window;
         if show_lic {
             egui::Window::new("🔑 La tua Licenza J-RAY PRO")
                 .open(&mut show_lic)
                 .resizable(false)
                 .collapsible(false)
-                .default_size(egui::vec2(380.0, 300.0))
+                .default_size(egui::vec2(380.0, 320.0)) // <--- Leggermente più alta per far spazio all'errore
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
                     ui.add_space(8.0);
@@ -459,6 +460,17 @@ impl eframe::App for JRayPro {
                             if ui.button(egui::RichText::new("🚀 Attiva / Aggiorna Piano").size(14.0)).clicked() {
                                 self.activate_license_online();
                             }
+
+                            // 👇 ECCO IL PEZZO CHE MANCAVA! Mostriamo il risultato sotto il tasto 👇
+                            if self.status_msg.contains("❌") || self.status_msg.contains("✅") || self.status_msg.contains("📡") {
+                                ui.add_space(10.0);
+                                let color = if self.status_msg.contains("❌") { egui::Color32::from_rgb(255, 80, 80) } 
+                                            else if self.status_msg.contains("✅") { egui::Color32::from_rgb(34, 197, 94) } 
+                                            else { egui::Color32::YELLOW };
+                                
+                                ui.label(egui::RichText::new(&self.status_msg).color(color).strong());
+                            }
+
                         } else {
                             ui.label(egui::RichText::new("Sei al massimo. Grazie per il supporto! 🙏").color(egui::Color32::from_rgb(236, 72, 153)));
                         }
@@ -469,11 +481,11 @@ impl eframe::App for JRayPro {
                         ui.horizontal(|ui| {
                             ui.add_space(70.0); // Centratura
                             if ui.link("📄 EULA").clicked() {
-                                let _ = open::that("https://tuo-sito.com/eula"); // 📝 INCOLLA QUI IL LINK EULA
+                                let _ = open::that("https://tuo-sito.com/eula");
                             }
                             ui.label(egui::RichText::new(" • ").color(egui::Color32::DARK_GRAY));
                             if ui.link("🔒 Privacy Policy").clicked() {
-                                let _ = open::that("https://tuo-sito.com/privacy"); // 📝 INCOLLA QUI IL LINK PRIVACY
+                                let _ = open::that("https://tuo-sito.com/privacy");
                             }
                         });
 

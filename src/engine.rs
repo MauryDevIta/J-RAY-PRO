@@ -642,26 +642,16 @@ impl JRayPro {
         (LicenseTier::Expired, 0, m_id)
     }
 
-    // 🛡️ MOTORE DI ATTIVAZIONE: Dialoga con Lemon Squeezy
+    // 🛡️ MOTORE DI ATTIVAZIONE: Dialoga con Lemon Squeezy (Versione Flessibile)
+    // 🛡️ MOTORE DI ATTIVAZIONE: Dialoga con Lemon Squeezy (Versione con Debug)
     pub fn activate_license_online(&mut self) {
-        #[derive(serde::Deserialize, Debug)]
-        struct LemonMeta {
-            variant_name: String,
-        }
-        #[derive(serde::Deserialize, Debug)]
-        struct LemonResponse {
-            activated: bool,
-            error: Option<String>,
-            meta: Option<LemonMeta>,
-        }
-
         let key = self.license_key.trim().to_string();
         if key.is_empty() {
             self.status_msg = "❌ Inserisci una chiave!".to_string();
             return;
         }
 
-        self.status_msg = "📡 Verificando...".to_string();
+        self.status_msg = "📡 Verificando sui server...".to_string();
 
         let client = reqwest::blocking::Client::new();
         
@@ -670,55 +660,61 @@ impl JRayPro {
             "instance_name": self.machine_id
         });
 
-        let res = client.post("https://api.lemonsqueezy.com/v1/licenses/activate")
-            .json(&body) 
-            .send();
-
-        match res {
+        match client.post("https://api.lemonsqueezy.com/v1/licenses/activate").json(&body).send() {
             Ok(response) => {
-                if !response.status().is_success() {
-                    println!("Errore Server: {}", response.status());
-                }
-
-                match response.json::<LemonResponse>() {
-                    Ok(data) => {
-                        if data.activated {
-                            let variant = data.meta.map(|m| m.variant_name).unwrap_or_else(|| "Personal".to_string());
-                            let is_pro = variant.to_lowercase().contains("pro");
-                            
-                            self.license_tier = if is_pro { crate::app::LicenseTier::Pro } else { crate::app::LicenseTier::Personal };
-                            
-                            // Salvataggio su file con FIRMA DIGITALE
-                            if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
-                                let config_dir = proj_dirs.config_dir();
-                                let _ = std::fs::create_dir_all(config_dir);
-                                let path = config_dir.join("license.key");
-                                
-                                let prefix = if is_pro { "PRO" } else { "PERSONAL" };
-                                
-                                // Costruiamo payload + Firma Anti-Manomissione
-                                let payload = format!("{}|{}|{}", prefix, key, self.machine_id);
-                                let signature = Self::generate_security_signature(&payload);
-                                
-                                let final_save = format!("{}|{}", payload, signature);
-                                let _ = std::fs::write(path, final_save);
-                            }
-                            
-                            self.status_msg = format!("✅ Attivato: {}", variant);
-                        } else {
-                            let err_msg = data.error.unwrap_or_else(|| "Chiave non valida".to_string());
-                            self.status_msg = format!("❌ {}", err_msg);
-                        }
-                    },
-                    Err(e) => {
-                        self.status_msg = "❌ Errore formato risposta".to_string();
-                        println!("Dettaglio errore JSON: {:?}", e);
+                let status = response.status();
+                let text = response.text().unwrap_or_default();
+                
+                // 🛑 STAMPIAMO IL TESTO GREZZO NEL TERMINALE PER CAPIRE L'ERRORE
+                println!("--- DEBUG LEMON SQUEEZY ---");
+                println!("Status Code: {}", status);
+                println!("Risposta RAW: {}", text);
+                println!("---------------------------");
+                
+                let json_data: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::json!({}));
+                
+                if status.is_success() && json_data["activated"].as_bool().unwrap_or(false) {
+                    
+                    let variant = json_data["meta"]["variant_name"].as_str().unwrap_or("Personal");
+                    let is_pro = variant.to_lowercase().contains("pro");
+                    
+                    self.license_tier = if is_pro { crate::app::LicenseTier::Pro } else { crate::app::LicenseTier::Personal };
+                    
+                    if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
+                        let config_dir = proj_dirs.config_dir();
+                        let _ = std::fs::create_dir_all(config_dir);
+                        let path = config_dir.join("license.key");
+                        
+                        let prefix = if is_pro { "PRO" } else { "PERSONAL" };
+                        let payload = format!("{}|{}|{}", prefix, key, self.machine_id);
+                        let signature = Self::generate_security_signature(&payload);
+                        
+                        let final_save = format!("{}|{}", payload, signature);
+                        let _ = std::fs::write(path, final_save);
+                    }
+                    
+                    self.status_msg = format!("✅ Attivato con successo: {}", variant);
+                
+                } else {
+                    // Cerca l'errore ovunque nel testo per essere infallibile
+                    let raw_lower = text.to_lowercase();
+                    
+                    if raw_lower.contains("limit") || raw_lower.contains("reached") {
+                        self.status_msg = "❌ Il codice è già stato usato (limite raggiunto).".to_string();
+                    } else if raw_lower.contains("not found") {
+                        self.status_msg = "❌ Chiave inesistente o errata.".to_string();
+                    } else {
+                        // Tenta di estrarre un messaggio pulito dal JSON
+                        let api_error = json_data["error"].as_str().unwrap_or(
+                            json_data["message"].as_str().unwrap_or("Errore generico.")
+                        );
+                        self.status_msg = format!("❌ Errore Server ({}): {}", status, api_error);
                     }
                 }
             },
             Err(e) => {
-                self.status_msg = "❌ Errore connessione".to_string();
                 println!("Errore Reqwest: {:?}", e);
+                self.status_msg = "❌ Errore di connessione ai server.".to_string();
             },
         }
     }
