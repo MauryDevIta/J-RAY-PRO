@@ -6,7 +6,7 @@ J-RAY PRO is a blazing-fast, visual node-based JSON editor and data analysis too
 
 Designed with performance and aesthetics in mind, J-RAY PRO combines the power of raw speed with a sleek, modern UI.
 
-![J-RAY PRO UI](https://via.placeholder.com/800x450.png?text=J-RAY+PRO+Visual+Interface) <!-- Feel free to replace with an actual screenshot -->
+![J-RAY PRO UI](https://via.placeholder.com/800x450.png?text=J-RAY+PRO+Visual+Interface) 
 
 ## ✨ Features
 
@@ -50,23 +50,46 @@ Need to share your architecture or payload structure with the team? Export your 
 ### ⚡ Built for Speed & Massive Files
 Engineered from the ground up in **Rust** using the `egui` framework, J-RAY PRO easily crushes I/O operations and handles massive datasets smoothly without freezing your system.
 
-## 🛠️ Tech Stack
-- **Language**: Rust
-- **GUI Framework**: `egui` / `eframe`
-- **Serialization**: `serde`, `serde_json`
-- **Parallel Processing**: `rayon`
-- **Additional Tooling**: `jsonpath-rust` (Querying), `sysinfo` (Hardware IDs at runtime), `similar` (Diffing)
+---
 
-## 📦 How to Build and Run
+## � Download & Installation
 
-Make sure you have [Rust](https://www.rust-lang.org/tools/install) installed on your system.
+You can download the latest pre-compiled, standalone executables for your operating system from the [Releases](../../releases) page. 
+
+*Note: Since J-RAY PRO is an independent developer tool, the executables are currently unsigned. Your OS might show a standard security warning on the first run. Here is how to run it safely:*
+
+### 🪟 Windows
+1. Download the `J-RAY-PRO-Windows.exe` file.
+2. Double-click the `.exe` to run it.
+3. **SmartScreen Bypass**: If Windows Defender SmartScreen prevents the app from starting, click **"More info"** (Ulteriori informazioni) and then click **"Run anyway"** (Esegui comunque).
+
+### 🍏 macOS (Apple Silicon)
+1. Download and extract the `J-RAY-PRO-Mac-Silicon` file.
+2. **Gatekeeper Bypass**: Because the app is not signed with an Apple Developer Certificate, double-clicking it might show an "App is damaged or from an unidentified developer" error.
+3. To open it: **Right-click** (or Control-click) the app icon and select **Open**. A new dialog will appear asking if you are sure; click **Open** again. 
+*(Alternatively, you can allow it from `System Settings > Privacy & Security` -> "Open Anyway").*
+
+### � Linux (Ubuntu/Debian)
+1. Download the `J-RAY-PRO-Linux` binary.
+2. Open your terminal and grant execution permissions to the file:
+   ```bash
+   chmod +x J-RAY-PRO-Linux
+   ```
+3. Run the application:
+   ```bash
+   ./J-RAY-PRO-Linux
+   ```
+   *(Note: Ensure you have standard graphic libraries installed, like libxcb, libxkbcommon, and fontconfig).*
+
+## 🛠️ Build from Source (For Developers)
+If you prefer to compile the app yourself, make sure you have Rust installed on your system.
 
 ```bash
 # Clone the repository
 git clone https://github.com/MauryDevIta/J-RAY-PRO.git
 cd J-RAY-PRO
 
-# Build and run the project
+# Build and run the project (Release mode is highly recommended for massive files)
 cargo run --release
 ```
 
