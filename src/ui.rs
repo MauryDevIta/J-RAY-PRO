@@ -227,7 +227,7 @@ impl eframe::App for JRayPro {
                     match self.license_tier {
                         LicenseTier::Trial => { ui.label(egui::RichText::new(format!("Freebie · {}d left", self.trial_days_left)).color(egui::Color32::from_rgb(234, 179, 8)).small()); }
                         LicenseTier::Personal => { ui.label(egui::RichText::new("Solo Swag").color(egui::Color32::from_rgb(56, 189, 248)).small()); }
-                        LicenseTier::Pro => { ui.label(egui::RichText::new("⚡ BALLER").color(egui::Color32::from_rgb(236, 72, 153)).small().strong()); }
+                        LicenseTier::Pro => { ui.label(egui::RichText::new("⚡ PRO").color(egui::Color32::from_rgb(236, 72, 153)).small().strong()); }
                         LicenseTier::Expired => {}
                     }
 
@@ -444,12 +444,12 @@ impl eframe::App for JRayPro {
                             LicenseTier::Personal => (
                                 "✅ SOLO SWAG Plan".to_string(),
                                 egui::Color32::from_rgb(56, 189, 248),
-                                "License is chill. Top up to BALLER for Radar API and Snoop.",
+                                "License is chill. Top up to PRO for Radar API and Snoop.",
                             ),
                             LicenseTier::Pro => (
-                                "⚡ BALLER Plan".to_string(),
+                                "⚡ PRO Plan".to_string(),
                                 egui::Color32::from_rgb(236, 72, 153),
-                                "BALLER license active. You got the keys to the city!",
+                                "PRO license active. You got the keys to the city!",
                             ),
                             LicenseTier::Expired => (
                                 "❌ BUSTED License".to_string(),
@@ -490,7 +490,7 @@ impl eframe::App for JRayPro {
                             }
 
                         } else {
-                            ui.label(egui::RichText::new("You're pure BALLER. Mad respect! 🙏").color(egui::Color32::from_rgb(236, 72, 153)));
+                            ui.label(egui::RichText::new("You're pure PRO. Mad respect! 🙏").color(egui::Color32::from_rgb(236, 72, 153)));
                         }
                         
                         ui.add_space(15.0);

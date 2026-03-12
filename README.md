@@ -81,17 +81,6 @@ You can download the latest pre-compiled, standalone executables for your operat
    ```
    *(Note: Ensure you have standard graphic libraries installed, like libxcb, libxkbcommon, and fontconfig).*
 
-## 🛠️ Build from Source (For Developers)
-If you prefer to compile the app yourself, make sure you have Rust installed on your system.
-
-```bash
-# Clone the repository
-git clone https://github.com/MauryDevIta/J-RAY-PRO.git
-cd J-RAY-PRO
-
-# Build and run the project (Release mode is highly recommended for massive files)
-cargo run --release
-```
 
 ## 📜 License & Disclaimers
 J-RAY PRO includes built-in Swag & License Management. Please read the End User License Agreement (EULA) and Terms of Service before "flexing" with the PRO engines.
