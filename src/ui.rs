@@ -14,19 +14,15 @@ impl eframe::App for JRayPro {
                     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                     .collapsible(false)
                     .resizable(false)
-                    .default_size([700.0, 550.0]) // Finestra un po' più grande
+                    .default_size([700.0, 550.0])
                     .show(ctx, |ui| {
                         ui.add_space(10.0);
                         ui.label(egui::RichText::new("Before using J-RAY PRO, you must read and accept the Terms of Service.").color(egui::Color32::LIGHT_GRAY));
                         ui.add_space(15.0);
                         
-                        // Il Box che permette di scorrere all'infinito!
-                        let scroll_height = ui.available_height() - 60.0; // Lascia spazio per i bottoni sotto
+                        let scroll_height = ui.available_height() - 60.0;
                         egui::ScrollArea::vertical().max_height(scroll_height).show(ui, |ui| {
-                            
-                            // 🪄 MAGIA RUST: Legge il file EULA.txt e lo infila nell'exe!
                             let eula_text = include_str!("EULA.txt");
-                            
                             ui.label(egui::RichText::new(eula_text).size(13.0).color(egui::Color32::from_gray(180)).monospace());
                         });
 
@@ -83,11 +79,11 @@ impl eframe::App for JRayPro {
                             ui.horizontal(|ui| {
                                 ui.add_space(20.0); // Centratura manuale
                                 if ui.link("📄 Termini e Condizioni (EULA)").clicked() {
-                                    let _ = open::that("https://tuo-sito.com/eula"); // 📝 INCOLLA QUI IL LINK EULA
+                                    let _ = open::that("https://tuo-sito.com/eula"); 
                                 }
                                 ui.label(egui::RichText::new(" • ").color(egui::Color32::DARK_GRAY));
                                 if ui.link("🔒 Privacy Policy").clicked() {
-                                    let _ = open::that("https://tuo-sito.com/privacy"); // 📝 INCOLLA QUI IL LINK PRIVACY
+                                    let _ = open::that("https://tuo-sito.com/privacy"); 
                                 }
                             });
                             
@@ -119,9 +115,35 @@ impl eframe::App for JRayPro {
         }
         // --- FINE MODALITÀ EXPIRED ---
 
-
         // 👇 DA QUI INIZIA IL PROGRAMMA NORMALE 👇
         let has_pro_features = self.license_tier == LicenseTier::Pro || self.license_tier == LicenseTier::Trial;
+
+        // ⚡ BACKGROUND LOADER: RICEZIONE DATI DEL FILE
+        if let Some(rx) = &self.file_receiver {
+            if let Ok((is_file_b, size_mb, full_text)) = rx.try_recv() {
+                // Il file è pronto! Lo processiamo e chiudiamo il tubo
+                self.process_loaded_file(is_file_b, size_mb, full_text);
+                self.file_receiver = None; 
+            }
+        }
+
+        // ⚡ BACKGROUND LOADER: SCHERMATA DI ATTESA
+        if self.is_loading {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(12, 12, 15));
+                ui.centered_and_justified(|ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.spinner(); // Questa rotellina girerà a 60FPS perfetti!
+                        ui.add_space(20.0);
+                        ui.heading(egui::RichText::new("Lettura del Mostro in corso...").size(24.0).strong().color(egui::Color32::from_rgb(99, 102, 241)));
+                        ui.add_space(10.0);
+                        ui.label(egui::RichText::new("L'interfaccia non è bloccata. Il file verrà caricato appena il disco fisso avrà finito.").color(egui::Color32::LIGHT_GRAY));
+                    });
+                });
+            });
+            // 🛑 RETURN FONDAMENTALE: Impedisce a tutto il codice sottostante di girare mentre carica!
+            return; 
+        }
 
         // ✨ RADAR: LOOP DI RETE ASINCRONO
         if self.is_api_live {
@@ -404,14 +426,13 @@ impl eframe::App for JRayPro {
         self.show_profiler = show_prof;
 
         // --- FINESTRA LICENZA ---
-        // --- FINESTRA LICENZA ---
         let mut show_lic = self.show_license_window;
         if show_lic {
             egui::Window::new("🔑 La tua Licenza J-RAY PRO")
                 .open(&mut show_lic)
                 .resizable(false)
                 .collapsible(false)
-                .default_size(egui::vec2(380.0, 320.0)) // <--- Leggermente più alta per far spazio all'errore
+                .default_size(egui::vec2(380.0, 320.0))
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
                     ui.add_space(8.0);
@@ -461,7 +482,6 @@ impl eframe::App for JRayPro {
                                 self.activate_license_online();
                             }
 
-                            // 👇 ECCO IL PEZZO CHE MANCAVA! Mostriamo il risultato sotto il tasto 👇
                             if self.status_msg.contains("❌") || self.status_msg.contains("✅") || self.status_msg.contains("📡") {
                                 ui.add_space(10.0);
                                 let color = if self.status_msg.contains("❌") { egui::Color32::from_rgb(255, 80, 80) } 

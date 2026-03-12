@@ -517,32 +517,56 @@ impl JRayPro {
 
     pub fn open_file(&mut self, is_file_b: bool) {
         if let Some(p) = rfd::FileDialog::new().add_filter("JSON", &["json"]).pick_file() {
-            if let Ok(metadata) = fs::metadata(&p) {
-                let size_mb = metadata.len() as f64 / 1_048_576.0;
-                if let Ok(full_text) = fs::read_to_string(p) {
+            
+            // 1. Blocchiamo la UI mettendo lo spinner
+            self.is_loading = true;
+            self.status_msg = "⏳ Lettura del mostro in corso (Background)...".to_string();
 
-                    let preview_text = if size_mb > 5.0 {
-                        self.is_huge_file = true;
-                        if !is_file_b { self.generate_graph_from_string(&full_text); }
-                        format!("/* ⚠️ FILE ENORME: {:.1} MB ⚠️\n* Sincronizzazione disabilitata.\n*/\n\n{}", size_mb, full_text.chars().take(10000).collect::<String>())
-                    } else {
-                        self.is_huge_file = false; full_text.clone()
-                    };
+            // 2. Creiamo il tubo di comunicazione
+            let (tx, rx) = std::sync::mpsc::channel();
+            self.file_receiver = Some(rx);
 
-                    if is_file_b { 
-                        self.raw_full_json_b = Some(full_text);
-                        self.json_input_b = preview_text; 
-                        self.active_tab = 1; 
-                        self.status_msg = "File B caricato".to_string(); 
-                    } else { 
-                        self.raw_full_json = Some(full_text);
-                        self.json_input = preview_text; 
-                        self.active_tab = 0; 
-                        self.status_msg = "File A caricato".to_string(); 
+            // 3. Spediamo il lavoro pesante in un Thread separato!
+            std::thread::spawn(move || {
+                if let Ok(metadata) = std::fs::metadata(&p) {
+                    let size_mb = metadata.len() as f64 / 1_048_576.0;
+                    // Questo non bloccherà più l'interfaccia:
+                    if let Ok(full_text) = std::fs::read_to_string(p) {
+                        // Quando ha finito, spedisce i dati nel tubo
+                        let _ = tx.send((is_file_b, size_mb, full_text));
                     }
                 }
-            }
+            });
         }
+    }
+
+    // ✨ NUOVA FUNZIONE: Riceve i dati dal thread e aggiorna l'app
+    pub fn process_loaded_file(&mut self, is_file_b: bool, size_mb: f64, full_text: String) {
+        let preview_text = if size_mb > 5.0 {
+            self.is_huge_file = true;
+            if !is_file_b { 
+                self.generate_graph_from_string(&full_text); 
+            }
+            format!("/* ⚠️ FILE ENORME: {:.1} MB ⚠️\n* Sincronizzazione disabilitata.\n*/\n\n{}", size_mb, full_text.chars().take(10000).collect::<String>())
+        } else {
+            self.is_huge_file = false; 
+            full_text.clone()
+        };
+
+        if is_file_b { 
+            self.raw_full_json_b = Some(full_text);
+            self.json_input_b = preview_text; 
+            self.active_tab = 1; 
+            self.status_msg = "✅ File B caricato".to_string(); 
+        } else { 
+            self.raw_full_json = Some(full_text);
+            self.json_input = preview_text; 
+            self.active_tab = 0; 
+            self.status_msg = "✅ File A caricato".to_string(); 
+        }
+        
+        // Spegniamo lo spinner!
+        self.is_loading = false;
     }
 
     // 🛡️ DIFESA 3: HARDWARE FINGERPRINTING ESTREMO

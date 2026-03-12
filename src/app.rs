@@ -1,6 +1,7 @@
 use eframe::egui;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::mpsc::Receiver;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum DiffStatus { Normal, Added, Removed, Modified }
@@ -36,6 +37,8 @@ pub struct FieldStats {
 }
 
 pub struct JRayPro {
+    pub is_loading: bool,
+    pub file_receiver: Option<Receiver<(bool, f64, String)>>, 
     pub eula_accepted: bool, // <--- LA VARIABILE EULA
     pub json_input: String,
     pub json_input_b: String,
@@ -94,6 +97,8 @@ impl Default for JRayPro {
 
         Self {
             eula_accepted: is_eula_accepted, // Passiamo il risultato qui
+            is_loading: false,
+            file_receiver: None,
             json_input: r#"{"app": "J-RAY PRO", "features": ["Deep Code Gen", "Minimap", "Folding"]}"#.to_string(),
             json_input_b: r#"{"app": "J-RAY PRO", "features": ["Visual Diff", "Minimap", "Folding"]}"#.to_string(),
             active_tab: 0,
