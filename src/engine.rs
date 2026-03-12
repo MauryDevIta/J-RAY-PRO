@@ -643,7 +643,7 @@ impl JRayPro {
             let trial_sig = Self::generate_security_signature(&trial_payload);
             std::fs::write(&trial_file, format!("{}|{}", trial_payload, trial_sig)).ok();
             
-            return (LicenseTier::Trial, 14, m_id);
+            return (LicenseTier::Trial, 7, m_id);
         } else {
             if let Ok(content) = std::fs::read_to_string(&trial_file) {
                 let parts: Vec<&str> = content.split('|').collect();
@@ -655,7 +655,7 @@ impl JRayPro {
                     if parts[2] == expected_sig && parts[1] == m_id {
                         if let Ok(first_run) = DateTime::parse_from_rfc3339(parts[0]) {
                             let elapsed = Utc::now().signed_duration_since(first_run.with_timezone(&Utc));
-                            let remaining = 14 - elapsed.num_days();
+                            let remaining = 7 - elapsed.num_days();
                             if remaining > 0 { return (LicenseTier::Trial, remaining, m_id); }
                         }
                     }

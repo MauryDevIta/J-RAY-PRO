@@ -138,7 +138,7 @@ impl Default for JRayPro {
             license_tier: LicenseTier::Trial, // Lo sovrascriveremo in main.rs
             show_license_window: false,
             machine_id: "unknown".to_string(),
-            trial_days_left: 14,
+            trial_days_left: 7,
         }
     }
 }
