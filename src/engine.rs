@@ -36,10 +36,10 @@ impl JRayPro {
                         utf8
                     }
                 } else {
-                    "❌ ERRORE: La decriptazione ha rivelato dati binari (non testo).".into()
+                    "❌ BUSTED: The decrypter spit out straight garbage (binary).".into()
                 }
             },
-            Err(_) => "❌ ERRORE: Chiave crittografica fallita o Base64 corrotto.".into()
+            Err(_) => "❌ BUSTED: Ya key is fake or Base64 is wack.".into()
         }
     }
 
@@ -60,7 +60,7 @@ impl JRayPro {
         if let Ok(value) = serde_json::from_str::<Value>(target_input) {
             if let Ok(pretty) = serde_json::to_string_pretty(&value) {
                 *target_input = pretty;
-                self.status_msg = "JSON formattato".to_string();
+                self.status_msg = "JSON pimped".to_string();
             }
         }
     }
@@ -91,7 +91,7 @@ impl JRayPro {
         let root_val = self.build_json_value(0);
         if let Ok(pretty) = serde_json::to_string_pretty(&root_val) {
             if self.active_tab == 0 { self.json_input = pretty; } else { self.json_input_b = pretty; }
-            self.status_msg = "Sincronizzazione completata!".to_string();
+            self.status_msg = "Vibes matched!".to_string();
         }
     }
 
@@ -100,7 +100,7 @@ impl JRayPro {
         self.sync_graph_to_json();
         if let Some(p) = rfd::FileDialog::new().add_filter("JSON", &["json"]).save_file() {
             let target_input = if self.active_tab == 0 { &self.json_input } else { &self.json_input_b };
-            if fs::write(p, target_input).is_ok() { self.status_msg = "💾 File salvato con successo".to_string(); }
+            if fs::write(p, target_input).is_ok() { self.status_msg = "💾 File secured in the bag".to_string(); }
         }
     }
 
@@ -152,7 +152,7 @@ impl JRayPro {
                 svg.push_str(&format!("<text x=\"{}\" y=\"{}\" fill=\"{}\" font-size=\"9\" font-weight=\"bold\" text-anchor=\"middle\">{}</text>\n", n.pos.x + 30.0, n.pos.y + 52.0, badge_col, n.node_type));
             }
             svg.push_str("</svg>");
-            if fs::write(path, svg).is_ok() { self.status_msg = format!("📸 SVG generato in {:?}", start.elapsed()); }
+            if fs::write(path, svg).is_ok() { self.status_msg = format!("📸 SVG snapped in {:?}", start.elapsed()); }
         }
     }
 
@@ -162,7 +162,7 @@ impl JRayPro {
     }
 
     pub fn generate_types(&mut self) {
-        if self.nodes.is_empty() { self.generated_code = "// Nessun dato presente nel grafo.".to_string(); return; }
+        if self.nodes.is_empty() { self.generated_code = "// Nada up in here.".to_string(); return; }
         
         let target_text = if self.active_tab == 0 {
             if self.json_input.starts_with("/* ⚠️") && self.raw_full_json.is_some() { self.raw_full_json.as_ref().unwrap() } else { &self.json_input }
@@ -236,20 +236,20 @@ impl JRayPro {
                     let mut sorted_types: Vec<_> = stat.types.iter().collect();
                     sorted_types.sort_by(|a, b| b.1.cmp(a.1));
                     let mut type_strs = Vec::new();
-                    for (t, count) in sorted_types { type_strs.push(format!("un {} in {} oggetti", t, count)); }
-                    reports.push(format!("⚠️ ATTENZIONE: Il campo '{}' è {}", key, type_strs.join(", ma è ")));
+                    for (t, count) in sorted_types { type_strs.push(format!("a {} in {} thangs", t, count)); }
+                    reports.push(format!("⚠️ YOOO: The field '{}' is {}", key, type_strs.join(", but is ")));
                 }
                 if stat.null_or_empty > 0 {
                     let perc = (stat.null_or_empty as f64 / stat.total as f64) * 100.0;
-                    if perc >= 1.0 { reports.push(format!("📉 Il campo '{}' è vuoto/null nel {:.1}% dei cases ({} su {} totali).", key, perc, stat.null_or_empty, stat.total)); }
+                    if perc >= 1.0 { reports.push(format!("📉 The field '{}' is ghost ({:.1}%) ({} out of {} total).", key, perc, stat.null_or_empty, stat.total)); }
                 }
             }
-            if reports.is_empty() { reports.push("✅ Nessuna anomalia di struttura rilevata! Il dataset è pulitissimo.".to_string()); } 
+            if reports.is_empty() { reports.push("✅ Zero cap! Your dataset is crispy clean.".to_string()); } 
             else { reports.sort_by(|a, b| b.starts_with("⚠️").cmp(&a.starts_with("⚠️"))); }
             self.profiler_reports = reports;
-            self.status_msg = format!("📊 Profiling AI completato in {:?}", start.elapsed());
+            self.status_msg = format!("📊 AI Snoop done in {:?}", start.elapsed());
             self.show_profiler = true;
-        } else { self.status_msg = "❌ Impossibile avviare il Profiler: JSON non valido".to_string(); }
+        } else { self.status_msg = "❌ Can't Snoop: JSON is busted".to_string(); }
     }
 
     pub fn profile_value(&self, val: &Value, stats: &mut HashMap<String, FieldStats>) {
@@ -259,11 +259,11 @@ impl JRayPro {
                     let entry = stats.entry(k.clone()).or_insert(FieldStats::default());
                     entry.total += 1;
                     let type_name = match v {
-                        Value::String(s) => { if s.trim().is_empty() { entry.null_or_empty += 1; } "Testo (String)" },
-                        Value::Number(_) => "Numero (Number)", Value::Bool(_) => "Booleano (Bool)",
-                        Value::Null => { entry.null_or_empty += 1; "Vuoto (Null)" },
-                        Value::Array(arr) => { if arr.is_empty() { entry.null_or_empty += 1; } "Lista (Array)" },
-                        Value::Object(_) => "Oggetto (Object)",
+                        Value::String(s) => { if s.trim().is_empty() { entry.null_or_empty += 1; } "Text (String)" },
+                        Value::Number(_) => "Numbers (Number)", Value::Bool(_) => "Bool (Bool)",
+                        Value::Null => { entry.null_or_empty += 1; "Ghost (Null)" },
+                        Value::Array(arr) => { if arr.is_empty() { entry.null_or_empty += 1; } "Crew (Array)" },
+                        Value::Object(_) => "Object (Object)",
                     };
                     *entry.types.entry(type_name.to_string()).or_insert(0) += 1;
                     self.profile_value(v, stats);
@@ -289,7 +289,7 @@ impl JRayPro {
 
         let mut s_idx: f32 = 0.0;
         self.diff_traverse(Some(&v1), Some(&v2), "root".to_string(), None, 0, &mut s_idx, "$".to_string());
-        self.status_msg = format!("⚖️ Diff calcolato in {:?}", start.elapsed());
+        self.status_msg = format!("⚖️ Split peeped in {:?}", start.elapsed());
     }
 
     pub fn diff_traverse(&mut self, v1: Option<&Value>, v2: Option<&Value>, label: String, p_idx: Option<usize>, d: usize, s_idx: &mut f32, current_path: String) {
@@ -342,7 +342,7 @@ impl JRayPro {
                     
                     let rem_len = max_len - limit;
                     let stack_label = format!("[{}..{}]", limit, max_len - 1);
-                    let stack_val = format!("🃏 Clicca [+50] per espandere ({} rimasti)", rem_len);
+                    let stack_val = format!("🃏 Smash [+50] to show more ({} left)", rem_len);
                     let stack_status = if len1 != len2 { DiffStatus::Modified } else { DiffStatus::Normal };
                     
                     self.nodes.push(Node {
@@ -374,8 +374,8 @@ impl JRayPro {
             self.traverse(&v, "root".to_string(), None, 0, &mut s_idx, "$".to_string());
             let dummy_center = egui::pos2(0.0, 0.0);
             self.apply_search(dummy_center);
-            self.status_msg = format!("Nitro: {} nodi in {:?}", self.nodes.len(), start.elapsed());
-        } else { self.status_msg = "ERRORE: JSON non valido".to_string(); }
+            self.status_msg = format!("Nitro: {} nodes pulled in {:?}", self.nodes.len(), start.elapsed());
+        } else { self.status_msg = "BUSTED: JSON is wack".to_string(); }
     }
 
     pub fn traverse(&mut self, value: &Value, label: String, p_idx: Option<usize>, d: usize, s_idx: &mut f32, current_path: String) {
@@ -409,7 +409,7 @@ impl JRayPro {
                 
                 let rem_len = arr.len() - limit;
                 let stack_label = format!("[{}..{}]", limit, arr.len() - 1);
-                let stack_val = format!("🃏 Clicca [+50] per espandere ({} rimasti)", rem_len);
+                let stack_val = format!("🃏 Smash [+50] to show more ({} left)", rem_len);
                 let remaining_vals: Vec<Value> = arr.iter().skip(limit).cloned().collect();
                 
                 self.nodes.push(Node {
@@ -459,7 +459,7 @@ impl JRayPro {
                         if let Some(arr) = results.as_array() {
                             if arr.is_empty() {
                                 for node in &mut self.nodes { node.matches_search = false; }
-                                self.status_msg = "🔍 Nessun risultato".to_string();
+                                self.status_msg = "🔍 Ghost town. Ain't here.".to_string();
                             } else {
                                 for (i, node) in self.nodes.iter_mut().enumerate() {
                                     node.matches_search = arr.contains(&node.raw_val);
@@ -472,13 +472,13 @@ impl JRayPro {
                                     }
                                     if node.matches_search && node.visible { self.search_results_idx.push(i); }
                                 }
-                                self.status_msg = format!("🎯 {} match esatti", self.search_results_idx.len());
+                                self.status_msg = format!("🎯 {} straight matches", self.search_results_idx.len());
                             }
                         }
                     },
                     Err(_) => {
                         for node in &mut self.nodes { node.matches_search = false; }
-                        self.status_msg = "❌ JSONPath non valida".to_string();
+                        self.status_msg = "❌ JSONPath is busted".to_string();
                     }
                 }
             }
@@ -488,7 +488,7 @@ impl JRayPro {
                 node.matches_search = node.label.to_lowercase().contains(&q_lower) || node.value.to_lowercase().contains(&q_lower);
                 if node.matches_search && node.visible { self.search_results_idx.push(i); }
             }
-            self.status_msg = format!("🔍 Trovati {} risultati", self.search_results_idx.len());
+            self.status_msg = format!("🔍 Scooped {} results", self.search_results_idx.len());
         }
 
         if !self.search_results_idx.is_empty() { self.focus_current_match(view_center); }
@@ -520,7 +520,7 @@ impl JRayPro {
             
             // 1. Blocchiamo la UI mettendo lo spinner
             self.is_loading = true;
-            self.status_msg = "⏳ Lettura del mostro in corso (Background)...".to_string();
+            self.status_msg = "⏳ Suckin' up the monster file (Background)...".to_string();
 
             // 2. Creiamo il tubo di comunicazione
             let (tx, rx) = std::sync::mpsc::channel();
@@ -557,12 +557,12 @@ impl JRayPro {
             self.raw_full_json_b = Some(full_text);
             self.json_input_b = preview_text; 
             self.active_tab = 1; 
-            self.status_msg = "✅ File B caricato".to_string(); 
+            self.status_msg = "✅ Doc B locked in".to_string(); 
         } else { 
             self.raw_full_json = Some(full_text);
             self.json_input = preview_text; 
             self.active_tab = 0; 
-            self.status_msg = "✅ File A caricato".to_string(); 
+            self.status_msg = "✅ Doc A locked in".to_string(); 
         }
         
         // Spegniamo lo spinner!
@@ -627,7 +627,7 @@ impl JRayPro {
                     if saved_tier == "PRO" { return (LicenseTier::Pro, 0, m_id); }
                     if saved_tier == "PERSONAL" { return (LicenseTier::Personal, 0, m_id); }
                 } else {
-                    println!("🚨 MANOMISSIONE O CLONAZIONE RILEVATA! BOOM!");
+                    println!("🚨 CLONE ALERT! SOMEBODY TRYIN TO STEAL YAA SWAG! BOOM!");
                 }
             }
         }
@@ -671,11 +671,11 @@ impl JRayPro {
     pub fn activate_license_online(&mut self) {
         let key = self.license_key.trim().to_string();
         if key.is_empty() {
-            self.status_msg = "❌ Inserisci una chiave!".to_string();
+            self.status_msg = "❌ Drop a key, bro!".to_string();
             return;
         }
 
-        self.status_msg = "📡 Verificando sui server...".to_string();
+        self.status_msg = "📡 Checking those servers...".to_string();
 
         let client = reqwest::blocking::Client::new();
         
@@ -717,28 +717,28 @@ impl JRayPro {
                         let _ = std::fs::write(path, final_save);
                     }
                     
-                    self.status_msg = format!("✅ Attivato con successo: {}", variant);
+                    self.status_msg = format!("✅ Swag loaded: {}", variant);
                 
                 } else {
                     // Cerca l'errore ovunque nel testo per essere infallibile
                     let raw_lower = text.to_lowercase();
                     
                     if raw_lower.contains("limit") || raw_lower.contains("reached") {
-                        self.status_msg = "❌ Il codice è già stato usato (limite raggiunto).".to_string();
+                        self.status_msg = "❌ Key's already busted (used up).".to_string();
                     } else if raw_lower.contains("not found") {
-                        self.status_msg = "❌ Chiave inesistente o errata.".to_string();
+                        self.status_msg = "❌ Nah, fake key.".to_string();
                     } else {
                         // Tenta di estrarre un messaggio pulito dal JSON
                         let api_error = json_data["error"].as_str().unwrap_or(
                             json_data["message"].as_str().unwrap_or("Errore generico.")
                         );
-                        self.status_msg = format!("❌ Errore Server ({}): {}", status, api_error);
+                        self.status_msg = format!("❌ Server Trippin' ({}): {}", status, api_error);
                     }
                 }
             },
             Err(e) => {
                 println!("Errore Reqwest: {:?}", e);
-                self.status_msg = "❌ Errore di connessione ai server.".to_string();
+                self.status_msg = "❌ Servers ain't talkin'.".to_string();
             },
         }
     }

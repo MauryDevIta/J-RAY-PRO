@@ -110,7 +110,7 @@ impl Default for JRayPro {
             connections: Vec::new(),
             pan: egui::Vec2::ZERO,
             zoom: 1.0,
-            status_msg: "Trifecta Engine Online".to_string(),
+            status_msg: "Trifecta Engine Kickin'".to_string(),
             is_zen_mode: false,
             dragged_node: None,
             is_huge_file: false,

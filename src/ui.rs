@@ -10,14 +10,14 @@ impl eframe::App for JRayPro {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(12, 12, 15));
                 
-                egui::Window::new("📜 END USER LICENSE AGREEMENT (EULA)")
+                egui::Window::new("📜 THE RULES (EULA)")
                     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                     .collapsible(false)
                     .resizable(false)
                     .default_size([700.0, 550.0])
                     .show(ctx, |ui| {
                         ui.add_space(10.0);
-                        ui.label(egui::RichText::new("Before using J-RAY PRO, you must read and accept the Terms of Service.").color(egui::Color32::LIGHT_GRAY));
+                        ui.label(egui::RichText::new("Before you flex with J-RAY PRO, read and accept these terms.").color(egui::Color32::LIGHT_GRAY));
                         ui.add_space(15.0);
                         
                         let scroll_height = ui.available_height() - 60.0;
@@ -31,12 +31,12 @@ impl eframe::App for JRayPro {
                         ui.add_space(15.0);
 
                         ui.horizontal(|ui| {
-                            if ui.button(egui::RichText::new("❌ Decline & Exit").size(16.0).color(egui::Color32::from_rgb(239, 68, 68))).clicked() {
+                            if ui.button(egui::RichText::new("❌ Nah, I'm out").size(16.0).color(egui::Color32::from_rgb(239, 68, 68))).clicked() {
                                 std::process::exit(0);
                             }
                             
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                if ui.button(egui::RichText::new("✅ I Accept the Terms").size(16.0).color(egui::Color32::from_rgb(34, 197, 94))).clicked() {
+                                if ui.button(egui::RichText::new("✅ Bet, I'm in").size(16.0).color(egui::Color32::from_rgb(34, 197, 94))).clicked() {
                                     if let Some(proj_dirs) = directories::ProjectDirs::from("com", "jray", "jraypro") {
                                         let _ = std::fs::create_dir_all(proj_dirs.config_dir());
                                         let _ = std::fs::write(proj_dirs.config_dir().join("eula.accepted"), "true");
@@ -56,7 +56,7 @@ impl eframe::App for JRayPro {
             egui::CentralPanel::default().show(ctx, |ui| {
                 ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(12, 12, 15));
                 
-                egui::Window::new("🔐 ATTIVAZIONE RICHIESTA")
+                egui::Window::new("🔐 PAY UP, BRO")
                     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                     .collapsible(false)
                     .resizable(false)
@@ -64,12 +64,12 @@ impl eframe::App for JRayPro {
                     .show(ctx, |ui| {
                         ui.add_space(10.0);
                         ui.vertical_centered(|ui| {
-                            ui.heading(egui::RichText::new("IL PERIODO DI PROVA È TERMINATO").size(22.0).color(egui::Color32::from_rgb(255, 80, 80)));
+                            ui.heading(egui::RichText::new("YOUR FREE RIDE IS OVER").size(22.0).color(egui::Color32::from_rgb(255, 80, 80)));
                             ui.add_space(15.0);
-                            ui.label(egui::RichText::new("Sblocca la licenza Lifetime per continuare a usare il motore Nitro.").size(15.0).color(egui::Color32::WHITE));
+                            ui.label(egui::RichText::new("Cop the Lifetime License to keep flexing the Nitro Engine.").size(15.0).color(egui::Color32::WHITE));
                             ui.add_space(25.0);
                             
-                            if ui.button(egui::RichText::new("🛒 ACQUISTA J-RAY PRO").size(20.0).strong()).clicked() {
+                            if ui.button(egui::RichText::new("🛒 COP J-RAY PRO").size(20.0).strong()).clicked() {
                                 let _ = open::that("https://jraypro.com/#pricing");
                             }
                             
@@ -77,13 +77,13 @@ impl eframe::App for JRayPro {
                             
                             // ⚖️ LINK LEGALI AFFIANCATI
                             ui.horizontal(|ui| {
-                                ui.add_space(20.0); // Centratura manuale
-                                if ui.link("📄 Termini e Condizioni (EULA)").clicked() {
-                                    let _ = open::that("https://tuo-sito.com/eula"); 
+                                ui.add_space(20.0); 
+                                if ui.link("📄 The Boring Rules (EULA)").clicked() {
+                                    let _ = open::that("https://j-ray.vercel.app/terms"); 
                                 }
                                 ui.label(egui::RichText::new(" • ").color(egui::Color32::DARK_GRAY));
-                                if ui.link("🔒 Privacy Policy").clicked() {
-                                    let _ = open::that("https://tuo-sito.com/privacy"); 
+                                if ui.link("🔒 Privacy Stuff").clicked() {
+                                    let _ = open::that("https://j-ray.vercel.app/privacy"); 
                                 }
                             });
                             
@@ -91,12 +91,12 @@ impl eframe::App for JRayPro {
                             ui.separator();
                             ui.add_space(15.0);
                             
-                            ui.label(egui::RichText::new("Hai già una licenza? Inseriscila qui:").color(egui::Color32::LIGHT_GRAY));
+                            ui.label(egui::RichText::new("Got a key already? Drop it here:").color(egui::Color32::LIGHT_GRAY));
                             ui.add_space(5.0);
                             ui.add(egui::TextEdit::singleline(&mut self.license_key).hint_text("AAAA-BBBB-CCCC-DDDD").desired_width(280.0));
                             ui.add_space(10.0);
                             
-                            if ui.button(egui::RichText::new("🚀 Attiva Software").size(16.0)).clicked() {
+                            if ui.button(egui::RichText::new("🚀 Let's Goooo").size(16.0)).clicked() {
                                 self.activate_license_online();
                             }
                             
@@ -106,7 +106,7 @@ impl eframe::App for JRayPro {
                             }
                             
                             ui.add_space(20.0);
-                            ui.label(egui::RichText::new(format!("ID Dispositivo: {}", self.machine_id)).small().color(egui::Color32::from_gray(100)));
+                            ui.label(egui::RichText::new(format!("Rig ID: {}", self.machine_id)).small().color(egui::Color32::from_gray(100)));
                         });
                         ui.add_space(10.0);
                     });
@@ -121,7 +121,6 @@ impl eframe::App for JRayPro {
         // ⚡ BACKGROUND LOADER: RICEZIONE DATI DEL FILE
         if let Some(rx) = &self.file_receiver {
             if let Ok((is_file_b, size_mb, full_text)) = rx.try_recv() {
-                // Il file è pronto! Lo processiamo e chiudiamo il tubo
                 self.process_loaded_file(is_file_b, size_mb, full_text);
                 self.file_receiver = None; 
             }
@@ -133,15 +132,14 @@ impl eframe::App for JRayPro {
                 ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::from_rgb(12, 12, 15));
                 ui.centered_and_justified(|ui| {
                     ui.vertical_centered(|ui| {
-                        ui.spinner(); // Questa rotellina girerà a 60FPS perfetti!
+                        ui.spinner(); 
                         ui.add_space(20.0);
-                        ui.heading(egui::RichText::new("Lettura del Mostro in corso...").size(24.0).strong().color(egui::Color32::from_rgb(99, 102, 241)));
+                        ui.heading(egui::RichText::new("Chewing massive data...").size(24.0).strong().color(egui::Color32::from_rgb(99, 102, 241)));
                         ui.add_space(10.0);
-                        ui.label(egui::RichText::new("L'interfaccia non è bloccata. Il file verrà caricato appena il disco fisso avrà finito.").color(egui::Color32::LIGHT_GRAY));
+                        ui.label(egui::RichText::new("UI is smooth. Just hold up while we load this chunky file.").color(egui::Color32::LIGHT_GRAY));
                     });
                 });
             });
-            // 🛑 RETURN FONDAMENTALE: Impedisce a tutto il codice sottostante di girare mentre carica!
             return; 
         }
 
@@ -181,13 +179,13 @@ impl eframe::App for JRayPro {
                     self.raw_full_json = Some(new_json.clone());
                     
                     self.run_diff(); 
-                    self.status_msg = format!("📡 Live Diff aggiornato alle {}", chrono::Local::now().format("%H:%M:%S"));
+                    self.status_msg = format!("📡 Live Diff updated at {}", chrono::Local::now().format("%H:%M:%S"));
                 } else {
                     self.json_input = new_json.clone();
                     self.raw_full_json = Some(new_json.clone());
                     self.active_tab = 0;
                     self.generate_graph_from_string(&new_json);
-                    self.status_msg = format!("📡 Radar: Ricevuti dati alle {}", chrono::Local::now().format("%H:%M:%S"));
+                    self.status_msg = format!("📡 Radar: Payload received at {}", chrono::Local::now().format("%H:%M:%S"));
                 }
             }
         }
@@ -224,28 +222,28 @@ impl eframe::App for JRayPro {
                 ui.horizontal(|ui| {
                     let logo_btn = ui.add(egui::Button::new(egui::RichText::new("J-RAY PRO").strong().color(egui::Color32::from_rgb(99, 102, 241))).frame(false));
                     if logo_btn.clicked() { self.show_license_window = !self.show_license_window; }
-                    logo_btn.on_hover_text("Gestione Licenza & Upgrade");
+                    logo_btn.on_hover_text("Swag & License Config");
 
                     match self.license_tier {
-                        LicenseTier::Trial => { ui.label(egui::RichText::new(format!("Trial · {}gg", self.trial_days_left)).color(egui::Color32::from_rgb(234, 179, 8)).small()); }
-                        LicenseTier::Personal => { ui.label(egui::RichText::new("Personal").color(egui::Color32::from_rgb(56, 189, 248)).small()); }
-                        LicenseTier::Pro => { ui.label(egui::RichText::new("⚡ PRO").color(egui::Color32::from_rgb(236, 72, 153)).small().strong()); }
+                        LicenseTier::Trial => { ui.label(egui::RichText::new(format!("Freebie · {}d left", self.trial_days_left)).color(egui::Color32::from_rgb(234, 179, 8)).small()); }
+                        LicenseTier::Personal => { ui.label(egui::RichText::new("Solo Swag").color(egui::Color32::from_rgb(56, 189, 248)).small()); }
+                        LicenseTier::Pro => { ui.label(egui::RichText::new("⚡ BALLER").color(egui::Color32::from_rgb(236, 72, 153)).small().strong()); }
                         LicenseTier::Expired => {}
                     }
 
                     ui.separator();
                     
-                    if ui.button("📂 File A").clicked() { self.open_file(false); }
-                    if ui.button("📂 File B").clicked() { self.open_file(true); }
-                    ui.add_enabled(!self.is_huge_file, egui::Button::new("💾 Salva")).clicked().then(|| { self.save_file(); });
+                    if ui.button("📂 Doc A").clicked() { self.open_file(false); }
+                    if ui.button("📂 Doc B").clicked() { self.open_file(true); }
+                    ui.add_enabled(!self.is_huge_file, egui::Button::new("💾 Keep It")).clicked().then(|| { self.save_file(); });
 
                     ui.separator();
 
                     // 🔒 CONTROLLO PRO: VISUAL DIFF
-                    let diff_lbl = if !has_pro_features { "🔒 Visual Diff" } else if self.is_diff_mode { "❌ Chiudi Diff" } else { "⚖️ Visual Diff" };
+                    let diff_lbl = if !has_pro_features { "🔒 Visual Flex" } else if self.is_diff_mode { "❌ Kill Flex" } else { "⚖️ Visual Flex" };
                     let diff_col = if !has_pro_features { egui::Color32::GRAY } else if self.is_diff_mode { egui::Color32::from_rgb(239, 68, 68) } else { egui::Color32::YELLOW };
                     
-                    if ui.button(egui::RichText::new(diff_lbl).color(diff_col)).on_hover_text(if !has_pro_features { "Richiede J-RAY PRO" } else { "Compara i due file JSON" }).clicked() { 
+                    if ui.button(egui::RichText::new(diff_lbl).color(diff_col)).on_hover_text(if !has_pro_features { "Need that PRO swag" } else { "Spot the diff" }).clicked() { 
                         if has_pro_features {
                             if self.is_diff_mode {
                                 let text = if self.active_tab == 0 {
@@ -254,12 +252,12 @@ impl eframe::App for JRayPro {
                                     if self.json_input_b.starts_with("/* ⚠️") && self.raw_full_json_b.is_some() { self.raw_full_json_b.as_ref().unwrap().clone() } else { self.json_input_b.clone() }
                                 };
                                 self.generate_graph_from_string(&text);
-                                self.status_msg = "Diff chiuso. Grafo ripristinato.".to_string();
+                                self.status_msg = "Flex killed. Graph back.".to_string();
                             } else {
                                 self.run_diff(); 
                             }
                         } else {
-                            self.status_msg = "🔒 Visual Diff è una funzionalità PRO!".to_string();
+                            self.status_msg = "🔒 Visual Flex is for BALLERS only!".to_string();
                             self.show_license_window = true;
                         }
                     }
@@ -271,15 +269,15 @@ impl eframe::App for JRayPro {
                     ui.add_enabled(has_pro_features, egui::TextEdit::singleline(&mut self.api_url).hint_text("https://...").desired_width(150.0));
                     ui.add_enabled(has_pro_features, egui::Slider::new(&mut self.api_interval, 0.5..=10.0).text("sec"));                    
                     
-                    let live_btn_text = if !has_pro_features { "🔒 Radar" } else if self.is_api_live { "🛑 Stop" } else { "▶ LIVE" };
+                    let live_btn_text = if !has_pro_features { "🔒 Radar" } else if self.is_api_live { "🛑 Chill" } else { "▶ LIVE" };
                     let live_btn_color = if !has_pro_features { egui::Color32::GRAY } else if self.is_api_live { egui::Color32::RED } else { egui::Color32::from_rgb(34, 197, 94) }; 
                     
-                    if ui.button(egui::RichText::new(live_btn_text).color(live_btn_color)).on_hover_text(if !has_pro_features { "Richiede J-RAY PRO" } else { "Connetti a URL" }).clicked() {
+                    if ui.button(egui::RichText::new(live_btn_text).color(live_btn_color)).on_hover_text(if !has_pro_features { "Need that PRO swag" } else { "Hook up to endpoint" }).clicked() {
                         if has_pro_features {
                             self.is_api_live = !self.is_api_live;
                             if self.is_api_live { self.last_api_fetch = None; } 
                         } else {
-                            self.status_msg = "🔒 Il Radar API Live richiede la licenza PRO!".to_string();
+                            self.status_msg = "🔒 API Radar needs that BALLER swag!".to_string();
                             self.show_license_window = true;
                         }
                     }
@@ -288,32 +286,32 @@ impl eframe::App for JRayPro {
 
                     // 🔒 CONTROLLO PRO: AI PROFILER
                     let prof_col = if has_pro_features { egui::Color32::from_rgb(34, 211, 238) } else { egui::Color32::GRAY };
-                    let prof_lbl = if has_pro_features { "📊 Profiler" } else { "🔒 Profiler" };
+                    let prof_lbl = if has_pro_features { "📊 AI Snoop" } else { "🔒 AI Snoop" };
                     
-                    if ui.button(egui::RichText::new(prof_lbl).color(prof_col)).on_hover_text(if has_pro_features { "Rileva Anomalie Dati (AI)" } else { "Richiede J-RAY PRO" }).clicked() { 
+                    if ui.button(egui::RichText::new(prof_lbl).color(prof_col)).on_hover_text(if has_pro_features { "AI Snoop for bad data" } else { "Need that PRO swag" }).clicked() { 
                         if has_pro_features {
                             self.run_profiler(); 
                         } else {
-                            self.status_msg = "🔒 L'AI Profiler richiede la licenza PRO!".to_string();
+                            self.status_msg = "🔒 AI Snoop needs the BALLER swag!".to_string();
                             self.show_license_window = true;
                         }
                     }
 
                     ui.separator();
-                    if ui.button("📸 Esporta SVG").clicked() { self.export_to_svg(); }
+                    if ui.button("📸 Snap SVG").clicked() { self.export_to_svg(); }
 
                     // 🔒 CONTROLLO PRO: CODE GEN
-                    let codegen_lbl = if has_pro_features { "🧬 Code Gen" } else { "🔒 Code Gen" };
-                    if ui.button(codegen_lbl).on_hover_text(if !has_pro_features { "Richiede J-RAY PRO" } else { "Genera tipi TypeScript/Rust" }).clicked() { 
+                    let codegen_lbl = if has_pro_features { "🧬 Code Maker" } else { "🔒 Code Maker" };
+                    if ui.button(codegen_lbl).on_hover_text(if !has_pro_features { "Need that PRO swag" } else { "Spit out TS/Rust/Python types" }).clicked() { 
                         if has_pro_features {
                             self.generate_types(); self.show_code_gen = true; 
                         } else {
-                            self.status_msg = "🔒 Il Generatore di Codice richiede la licenza PRO!".to_string();
+                            self.status_msg = "🔒 Code Maker needs that BALLER swag!".to_string();
                             self.show_license_window = true;
                         }
                     }
 
-                    ui.add_enabled(!self.is_huge_file, egui::Button::new("🚀 Genera Grafo")).clicked().then(|| {
+                    ui.add_enabled(!self.is_huge_file, egui::Button::new("🚀 Spin The Graph")).clicked().then(|| {
                         if !self.is_huge_file { 
                             let text = if self.active_tab == 0 { self.json_input.clone() } else { self.json_input_b.clone() };
                             self.generate_graph_from_string(&text); 
@@ -323,7 +321,7 @@ impl eframe::App for JRayPro {
                     ui.separator();
                     ui.label("🔍");
                     let view_center = ctx.available_rect().center();
-                    let s_resp = ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Cerca o $.jsonPath...").desired_width(120.0));
+                    let s_resp = ui.add(egui::TextEdit::singleline(&mut self.search_query).hint_text("Hunt or $.jsonPath...").desired_width(120.0));
                     if s_resp.changed() { self.apply_search(view_center); }
                     if s_resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) { self.next_search_match(view_center); }
 
@@ -334,12 +332,12 @@ impl eframe::App for JRayPro {
                     }
                     
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let msg_color = if self.status_msg.contains("🔒") { egui::Color32::from_rgb(255, 80, 80) } else { egui::Color32::LIGHT_BLUE };
+                        let msg_color = if self.status_msg.contains("🔒") || self.status_msg.contains("❌") { egui::Color32::from_rgb(255, 80, 80) } else { egui::Color32::LIGHT_BLUE };
                         ui.label(egui::RichText::new(&self.status_msg).color(msg_color));
                         if self.is_diff_mode {
                             ui.label(egui::RichText::new("■ Mod").color(egui::Color32::from_rgb(234, 179, 8)));
-                            ui.label(egui::RichText::new("■ Rim").color(egui::Color32::from_rgb(239, 68, 68)));
-                            ui.label(egui::RichText::new("■ Agg").color(egui::Color32::from_rgb(34, 197, 94)));
+                            ui.label(egui::RichText::new("■ Del").color(egui::Color32::from_rgb(239, 68, 68)));
+                            ui.label(egui::RichText::new("■ Add").color(egui::Color32::from_rgb(34, 197, 94)));
                         }
                     });
                 });
@@ -349,20 +347,20 @@ impl eframe::App for JRayPro {
             egui::SidePanel::left("editor").width_range(300.0..=600.0).show(ctx, |ui| {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
-                        ui.heading("Editor");
+                        ui.heading("The Lab");
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.add_enabled(!self.is_huge_file && !self.is_diff_mode, egui::Button::new("✨ Format")).clicked().then(|| { self.format_json(); });
-                            ui.add_enabled(!self.is_huge_file && !self.nodes.is_empty() && !self.is_diff_mode, egui::Button::new("🔄 Sync Grafo")).clicked().then(|| { self.sync_graph_to_json(); });
+                            ui.add_enabled(!self.is_huge_file && !self.is_diff_mode, egui::Button::new("✨ Pimp Format")).clicked().then(|| { self.format_json(); });
+                            ui.add_enabled(!self.is_huge_file && !self.nodes.is_empty() && !self.is_diff_mode, egui::Button::new("🔄 Vibe Check Graph")).clicked().then(|| { self.sync_graph_to_json(); });
                         });
                     });
 
                     if self.is_diff_mode {
                         ui.separator();
-                        ui.label(egui::RichText::new("👀 Comparazione Testo").color(egui::Color32::YELLOW).strong());
+                        ui.label(egui::RichText::new("👀 Spying Diff").color(egui::Color32::YELLOW).strong());
                         ui.separator();
                         if self.is_huge_file {
-                            ui.label(egui::RichText::new("⚠️ TESTO TROPPO GRANDE PER IL DIFF INLINE").color(egui::Color32::RED));
-                            ui.label("Guarda il Grafo 3D a destra. I nodi sono stati compressi con lo Smart Stack per prestazioni estreme.");
+                            ui.label(egui::RichText::new("⚠️ TEXT TOO DAMN THICK FOR INLINE DIFF").color(egui::Color32::RED));
+                            ui.label("Scope the 3D Graph. We squished the nodes so it doesn't lag.");
                         } else {
                             egui::ScrollArea::both().show(ui, |ui| {
                                 let diff = TextDiff::from_lines(&self.json_input, &self.json_input_b);
@@ -382,8 +380,8 @@ impl eframe::App for JRayPro {
                         }
                     } else {
                         ui.horizontal(|ui| {
-                            ui.selectable_value(&mut self.active_tab, 0, "📄 File A");
-                            ui.selectable_value(&mut self.active_tab, 1, "📄 File B");
+                            ui.selectable_value(&mut self.active_tab, 0, "📄 Doc A");
+                            ui.selectable_value(&mut self.active_tab, 1, "📄 Doc B");
                         });
                         ui.separator();
                         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -402,12 +400,12 @@ impl eframe::App for JRayPro {
         // --- FINESTRE MODALI / UTILITIES ---
         let mut show_prof = self.show_profiler;
         if show_prof {
-            egui::Window::new("📊 AI Data Profiler & Anomaly Detector")
+            egui::Window::new("📊 AI Snoop & Bug Hunter")
                 .open(&mut show_prof)
                 .default_size(egui::vec2(600.0, 400.0))
                 .vscroll(true)
                 .show(ctx, |ui| {
-                    ui.heading("Report Integrità Dataset");
+                    ui.heading("Tea on your Dataset");
                     ui.separator();
                     ui.add_space(10.0);
                     
@@ -428,7 +426,7 @@ impl eframe::App for JRayPro {
         // --- FINESTRA LICENZA ---
         let mut show_lic = self.show_license_window;
         if show_lic {
-            egui::Window::new("🔑 La tua Licenza J-RAY PRO")
+            egui::Window::new("🔑 J-RAY PRO Swag Hub")
                 .open(&mut show_lic)
                 .resizable(false)
                 .collapsible(false)
@@ -439,24 +437,24 @@ impl eframe::App for JRayPro {
                     ui.vertical_centered(|ui| {
                         let (plan_label, plan_color, plan_desc) = match self.license_tier {
                             LicenseTier::Trial => (
-                                format!("🕐 Piano TRIAL — {} giorni rimasti", self.trial_days_left),
+                                format!("🕐 TASTE TEST — {} days left", self.trial_days_left),
                                 egui::Color32::from_rgb(234, 179, 8),
-                                "Stai usando la versione di prova. Tutte le funzionalità sono attive.",
+                                "You're just checking the vibes. All flexes unlocked.",
                             ),
                             LicenseTier::Personal => (
-                                "✅ Piano PERSONAL".to_string(),
+                                "✅ SOLO SWAG Plan".to_string(),
                                 egui::Color32::from_rgb(56, 189, 248),
-                                "Licenza attiva. Fai l'upgrade a PRO per accedere a Radar e Profiler.",
+                                "License is chill. Top up to BALLER for Radar API and Snoop.",
                             ),
                             LicenseTier::Pro => (
-                                "⚡ Piano PRO".to_string(),
+                                "⚡ BALLER Plan".to_string(),
                                 egui::Color32::from_rgb(236, 72, 153),
-                                "Licenza PRO attiva. Accesso completo a tutti i moduli sbloccato!",
+                                "BALLER license active. You got the keys to the city!",
                             ),
                             LicenseTier::Expired => (
-                                "❌ Licenza SCADUTA".to_string(),
+                                "❌ BUSTED License".to_string(),
                                 egui::Color32::from_rgb(239, 68, 68),
-                                "Il periodo di trial è terminato.",
+                                "Your free ride is over, bro.",
                             ),
                         };
 
@@ -468,17 +466,17 @@ impl eframe::App for JRayPro {
                         ui.add_space(10.0);
 
                         if self.license_tier != LicenseTier::Pro {
-                            if ui.button(egui::RichText::new("🛒 Acquista / Upgrade Licenza").size(15.0).strong()).clicked() {
+                            if ui.button(egui::RichText::new("🛒 Cop or Glow Up License").size(15.0).strong()).clicked() {
                                 let _ = open::that("https://jraypro.com/#pricing");
                             }
                             ui.add_space(12.0);
                             ui.separator();
                             ui.add_space(8.0);
-                            ui.label(egui::RichText::new("Hai già una chiave PRO? Inseriscila qui:").color(egui::Color32::LIGHT_GRAY).small());
+                            ui.label(egui::RichText::new("Got a key? Drop it here:").color(egui::Color32::LIGHT_GRAY).small());
                             ui.add_space(4.0);
                             ui.add(egui::TextEdit::singleline(&mut self.license_key).hint_text("AAAA-BBBB-CCCC-DDDD").desired_width(260.0));
                             ui.add_space(6.0);
-                            if ui.button(egui::RichText::new("🚀 Attiva / Aggiorna Piano").size(14.0)).clicked() {
+                            if ui.button(egui::RichText::new("🚀 Light It Up").size(14.0)).clicked() {
                                 self.activate_license_online();
                             }
 
@@ -492,25 +490,25 @@ impl eframe::App for JRayPro {
                             }
 
                         } else {
-                            ui.label(egui::RichText::new("Sei al massimo. Grazie per il supporto! 🙏").color(egui::Color32::from_rgb(236, 72, 153)));
+                            ui.label(egui::RichText::new("You're pure BALLER. Mad respect! 🙏").color(egui::Color32::from_rgb(236, 72, 153)));
                         }
                         
                         ui.add_space(15.0);
                         
                         // ⚖️ LINK LEGALI NELLA FINESTRA LICENZA
                         ui.horizontal(|ui| {
-                            ui.add_space(70.0); // Centratura
+                            ui.add_space(70.0);
                             if ui.link("📄 EULA").clicked() {
                                 let _ = open::that("https://j-ray.vercel.app/terms");
                             }
                             ui.label(egui::RichText::new(" • ").color(egui::Color32::DARK_GRAY));
-                            if ui.link("🔒 Privacy Policy").clicked() {
+                            if ui.link("🔒 Privacy Stuff").clicked() {
                                 let _ = open::that("https://j-ray.vercel.app/privacy");
                             }
                         });
 
                         ui.add_space(10.0);
-                        ui.label(egui::RichText::new(format!("Device ID: {}", self.machine_id)).small().color(egui::Color32::from_gray(90)));
+                        ui.label(egui::RichText::new(format!("Rig ID: {}", self.machine_id)).small().color(egui::Color32::from_gray(90)));
                     });
                     ui.add_space(6.0);
                 });
@@ -519,14 +517,14 @@ impl eframe::App for JRayPro {
 
         let mut show_window = self.show_code_gen;
         if show_window {
-            egui::Window::new("🧬 Type Inference Engine").open(&mut show_window).default_size(egui::vec2(500.0, 600.0)).vscroll(true).show(ctx, |ui| {
+            egui::Window::new("🧬 Type Guessing Magic").open(&mut show_window).default_size(egui::vec2(500.0, 600.0)).vscroll(true).show(ctx, |ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Linguaggio: ");
+                    ui.label("Flavor: ");
                     if ui.radio_value(&mut self.code_gen_lang, 0, "TypeScript").changed() { self.generate_types(); }
                     if ui.radio_value(&mut self.code_gen_lang, 1, "Rust").changed() { self.generate_types(); }
                     if ui.radio_value(&mut self.code_gen_lang, 2, "Python (Pydantic)").changed() { self.generate_types(); }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("📋 Copia Codice").clicked() { ctx.output_mut(|o| o.copied_text = self.generated_code.clone()); self.status_msg = "Codice copiato negli appunti!".to_string(); }
+                        if ui.button("📋 Yoink to Clipboard").clicked() { ctx.output_mut(|o| o.copied_text = self.generated_code.clone()); self.status_msg = "Yoinked that code!".to_string(); }
                     });
                 });
                 ui.separator();
@@ -540,6 +538,8 @@ impl eframe::App for JRayPro {
 
         // --- MOTORE GRAFICO NITRO ---
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.set_clip_rect(ui.available_rect_before_wrap());
+
             let (resp, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::drag());
             let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
 
@@ -679,7 +679,7 @@ impl eframe::App for JRayPro {
                             
                             if node.is_secret {
                                 let btn_rect = egui::Rect::from_center_size(rect.right_center() + egui::vec2(-20.0 * self.zoom, 8.0 * self.zoom), egui::vec2(24.0, 16.0) * self.zoom);
-                                if ui.put(btn_rect, egui::Button::new(egui::RichText::new("🔓").size(10.0 * self.zoom)).fill(egui::Color32::from_rgb(220, 38, 38))).on_hover_text("Decripta Token (JWT/Base64)").clicked() {
+                                if ui.put(btn_rect, egui::Button::new(egui::RichText::new("🔓").size(10.0 * self.zoom)).fill(egui::Color32::from_rgb(220, 38, 38))).on_hover_text("Crack open Token (JWT/Base64)").clicked() {
                                     do_decode = Some(node.value.clone());
                                 }
                             }
@@ -739,12 +739,12 @@ impl eframe::App for JRayPro {
         }
 
         if let Some(mut payload) = self.decoded_payload.clone() {
-            egui::Window::new("🔓 L'Occhio a Raggi X - Payload Decriptato")
+            egui::Window::new("🔓 X-Ray Snoop - Spilled Tea")
                 .collapsible(false)
                 .resizable(true)
                 .default_size([500.0, 350.0])
                 .show(ctx, |ui| {
-                    ui.label(egui::RichText::new("I dati nascosti in questo Token sono:").color(egui::Color32::LIGHT_GREEN));
+                    ui.label(egui::RichText::new("The juicy gossip inside this Token is:").color(egui::Color32::LIGHT_GREEN));
                     ui.separator();
                     egui::ScrollArea::vertical().show(ui, |ui| {
                         ui.add(egui::TextEdit::multiline(&mut payload)
@@ -752,18 +752,18 @@ impl eframe::App for JRayPro {
                             .desired_width(f32::INFINITY));
                     });
                     ui.separator();
-                    if ui.button("Chiudi finestra").clicked() {
+                    if ui.button("Ditch This").clicked() {
                         self.decoded_payload = None;
                     }
                 });
         }
 
         if self.loading_state == 1 {
-            egui::Window::new("⏳ ESTRAZIONE CARTE...")
+            egui::Window::new("⏳ CHUGGIN' DATA...")
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .collapsible(false)
                 .show(ctx, |ui| {
-                    ui.label("Ricalcolo del Grafo 3D in corso.\nNon cliccare, ci vorrà qualche istante...");
+                    ui.label("Spinning up the 3D Graph.\nHold your horses...");
                 });
             self.loading_state = 2;
             ctx.request_repaint(); 

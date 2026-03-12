@@ -24,7 +24,7 @@ impl JRayPro {
         if let Ok(value) = serde_json::from_str::<Value>(target_input) {
             if let Ok(pretty) = serde_json::to_string_pretty(&value) {
                 *target_input = pretty;
-                self.status_msg = "JSON formattato".to_string();
+                self.status_msg = "JSON pimped".to_string();
             }
         }
     }
@@ -55,7 +55,7 @@ impl JRayPro {
         let root_val = self.build_json_value(0);
         if let Ok(pretty) = serde_json::to_string_pretty(&root_val) {
             if self.active_tab == 0 { self.json_input = pretty; } else { self.json_input_b = pretty; }
-            self.status_msg = "Sincronizzazione completata!".to_string();
+            self.status_msg = "Vibes matched!".to_string();
         }
     }
 
@@ -64,7 +64,7 @@ impl JRayPro {
         self.sync_graph_to_json(); 
         if let Some(p) = rfd::FileDialog::new().add_filter("JSON", &["json"]).save_file() {
             let target_input = if self.active_tab == 0 { &self.json_input } else { &self.json_input_b };
-            if fs::write(p, target_input).is_ok() { self.status_msg = "💾 File salvato con successo".to_string(); }
+            if fs::write(p, target_input).is_ok() { self.status_msg = "💾 File secured in the bag".to_string(); }
         }
     }
 
@@ -114,7 +114,7 @@ impl JRayPro {
                 svg.push_str(&format!("<text x=\"{}\" y=\"{}\" fill=\"{}\" font-size=\"9\" font-weight=\"bold\" text-anchor=\"middle\">{}</text>\n", n.pos.x + 30.0, n.pos.y + 52.0, badge_col, n.node_type));
             }
             svg.push_str("</svg>");
-            if fs::write(path, svg).is_ok() { self.status_msg = format!("📸 SVG generato in {:?}", start.elapsed()); }
+            if fs::write(path, svg).is_ok() { self.status_msg = format!("📸 SVG snapped in {:?}", start.elapsed()); }
         }
     }
 
@@ -124,7 +124,7 @@ impl JRayPro {
     }
 
     pub fn generate_types(&mut self) {
-        if self.nodes.is_empty() { self.generated_code = "// Nessun dato presente nel grafo.".to_string(); return; }
+        if self.nodes.is_empty() { self.generated_code = "// Nada up in here.".to_string(); return; }
         let root_val = if self.is_huge_file && self.raw_full_json.is_some() { serde_json::from_str(self.raw_full_json.as_ref().unwrap()).unwrap_or(Value::Null) } else { self.build_json_value(0) };
         let mut output = String::new();
         match self.code_gen_lang {
@@ -186,20 +186,20 @@ impl JRayPro {
                     let mut sorted_types: Vec<_> = stat.types.iter().collect();
                     sorted_types.sort_by(|a, b| b.1.cmp(a.1));
                     let mut type_strs = Vec::new();
-                    for (t, count) in sorted_types { type_strs.push(format!("un {} in {} oggetti", t, count)); }
-                    reports.push(format!("⚠️ ATTENZIONE: Il campo '{}' è {}", key, type_strs.join(", ma è ")));
+                    for (t, count) in sorted_types { type_strs.push(format!("a {} in {} thangs", t, count)); }
+                    reports.push(format!("⚠️ YOOO: The field '{}' is {}", key, type_strs.join(", but is ")));
                 }
                 if stat.null_or_empty > 0 {
                     let perc = (stat.null_or_empty as f64 / stat.total as f64) * 100.0;
-                    if perc >= 1.0 { reports.push(format!("📉 Il campo '{}' è vuoto/null nel {:.1}% dei casi ({} su {} totali).", key, perc, stat.null_or_empty, stat.total)); }
+                    if perc >= 1.0 { reports.push(format!("📉 The field '{}' is ghost ({:.1}%) ({} out of {} total).", key, perc, stat.null_or_empty, stat.total)); }
                 }
             }
-            if reports.is_empty() { reports.push("✅ Nessuna anomalia di struttura rilevata! Il dataset è pulitissimo.".to_string()); } 
+            if reports.is_empty() { reports.push("✅ Zero cap! Your dataset is crispy clean.".to_string()); } 
             else { reports.sort_by(|a, b| b.starts_with('⚠️').cmp(&a.starts_with('⚠️'))); }
             self.profiler_reports = reports;
-            self.status_msg = format!("📊 Profiling AI completato in {:?}", start.elapsed());
+            self.status_msg = format!("📊 AI Snoop done in {:?}", start.elapsed());
             self.show_profiler = true;
-        } else { self.status_msg = "❌ Impossibile avviare il Profiler: JSON non valido".to_string(); }
+        } else { self.status_msg = "❌ Can't Snoop: JSON is busted".to_string(); }
     }
 
     pub fn profile_value(&self, val: &Value, stats: &mut HashMap<String, FieldStats>) {
@@ -209,11 +209,11 @@ impl JRayPro {
                     let entry = stats.entry(k.clone()).or_insert(FieldStats::default());
                     entry.total += 1;
                     let type_name = match v {
-                        Value::String(s) => { if s.trim().is_empty() { entry.null_or_empty += 1; } "Testo (String)" },
-                        Value::Number(_) => "Numero (Number)", Value::Bool(_) => "Booleano (Bool)",
-                        Value::Null => { entry.null_or_empty += 1; "Vuoto (Null)" },
-                        Value::Array(arr) => { if arr.is_empty() { entry.null_or_empty += 1; } "Lista (Array)" },
-                        Value::Object(_) => "Oggetto (Object)",
+                        Value::String(s) => { if s.trim().is_empty() { entry.null_or_empty += 1; } "Text (String)" },
+                        Value::Number(_) => "Numbers (Number)", Value::Bool(_) => "Bool (Bool)",
+                        Value::Null => { entry.null_or_empty += 1; "Ghost (Null)" },
+                        Value::Array(arr) => { if arr.is_empty() { entry.null_or_empty += 1; } "Crew (Array)" },
+                        Value::Object(_) => "Object (Object)",
                     };
                     *entry.types.entry(type_name.to_string()).or_insert(0) += 1;
                     self.profile_value(v, stats);
@@ -233,7 +233,7 @@ impl JRayPro {
         let v2 = serde_json::from_str::<Value>(&self.json_input_b).unwrap_or(Value::Null);
         let mut s_idx: f32 = 0.0;
         self.diff_traverse(Some(&v1), Some(&v2), "root".to_string(), None, 0, &mut s_idx, "$".to_string());
-        self.status_msg = format!("⚖️ Diff calcolato in {:?}", start.elapsed());
+        self.status_msg = format!("⚖️ Split peeped in {:?}", start.elapsed());
     }
 
     pub fn diff_traverse(&mut self, v1: Option<&Value>, v2: Option<&Value>, label: String, p_idx: Option<usize>, d: usize, s_idx: &mut f32, current_path: String) {
@@ -285,8 +285,8 @@ impl JRayPro {
             self.traverse(&v, "root".to_string(), None, 0, &mut s_idx, "$".to_string());
             let dummy_center = egui::pos2(0.0, 0.0);
             self.apply_search(dummy_center);
-            self.status_msg = format!("Nitro: {} nodi in {:?}", self.nodes.len(), start.elapsed());
-        } else { self.status_msg = "ERRORE: JSON non valido".to_string(); }
+            self.status_msg = format!("Nitro: {} nodes pulled in {:?}", self.nodes.len(), start.elapsed());
+        } else { self.status_msg = "BUSTED: JSON is wack".to_string(); }
     }
 
     pub fn traverse(&mut self, value: &Value, label: String, p_idx: Option<usize>, d: usize, s_idx: &mut f32, current_path: String) {
@@ -340,19 +340,19 @@ impl JRayPro {
                         if let Some(arr) = results.as_array() {
                             if arr.is_empty() {
                                 for node in &mut self.nodes { node.matches_search = false; }
-                                self.status_msg = "🔍 Nessun risultato".to_string();
+                                self.status_msg = "🔍 Ghost town. Ain't here.".to_string();
                             } else {
                                 for (i, node) in self.nodes.iter_mut().enumerate() {
                                     node.matches_search = arr.contains(&node.raw_val);
                                     if node.matches_search && node.visible { self.search_results_idx.push(i); }
                                 }
-                                self.status_msg = format!("🎯 {} match esatti", self.search_results_idx.len());
+                                self.status_msg = format!("🎯 {} straight matches", self.search_results_idx.len());
                             }
                         }
                     },
                     Err(_) => {
                         for node in &mut self.nodes { node.matches_search = false; }
-                        self.status_msg = "❌ JSONPath non valida".to_string();
+                        self.status_msg = "❌ JSONPath is busted".to_string();
                     }
                 }
             }
@@ -362,7 +362,7 @@ impl JRayPro {
                 node.matches_search = node.label.to_lowercase().contains(&q_lower) || node.value.to_lowercase().contains(&q_lower);
                 if node.matches_search && node.visible { self.search_results_idx.push(i); }
             }
-            self.status_msg = format!("🔍 Trovati {} risultati", self.search_results_idx.len());
+            self.status_msg = format!("🔍 Scooped {} results", self.search_results_idx.len());
         }
         if !self.search_results_idx.is_empty() { self.focus_current_match(view_center); }
     }
@@ -403,8 +403,8 @@ impl JRayPro {
                         self.is_huge_file = false; full_text
                     };
 
-                    if is_file_b { self.json_input_b = preview_text; self.active_tab = 1; self.status_msg = "File B caricato".to_string(); } 
-                    else { self.json_input = preview_text; self.active_tab = 0; self.status_msg = "File A caricato".to_string(); }
+                    if is_file_b { self.json_input_b = preview_text; self.active_tab = 1; self.status_msg = "Doc B locked in".to_string(); } 
+                    else { self.json_input = preview_text; self.active_tab = 0; self.status_msg = "Doc A locked in".to_string(); }
                 }
             }
         }

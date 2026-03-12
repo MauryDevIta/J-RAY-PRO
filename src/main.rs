@@ -35,10 +35,10 @@ fn main() -> eframe::Result<()> {
             app.machine_id = uid;
 
             // 3. Stampiamo nel terminale per testare (visibile solo se non usi --release)
-            println!("--- J-RAY PRO SECURITY CHECK ---");
-            println!("Device ID: {}", app.machine_id);
-            println!("Licenza attuale: {:?}", app.license_tier);
-            println!("Giorni di trial rimasti: {}", app.trial_days_left);
+            println!("--- J-RAY PRO VIBE CHECK ---");
+            println!("Rig ID: {}", app.machine_id);
+            println!("Current Swag: {:?}", app.license_tier);
+            println!("Free Ridin' Days Left: {}", app.trial_days_left);
             println!("--------------------------------");
 
             // 4. Avviamo l'interfaccia
