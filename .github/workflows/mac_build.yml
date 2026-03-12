@@ -83,3 +83,28 @@ jobs:
       with:
         name: J-RAY-PRO-Linux-${{ github.ref_name }}
         path: target/release/J-RAY-PRO-Linux-${{ github.ref_name }}
+
+
+  # 🚀 JOB FINALE: PUBBLICAZIONE AUTOMATICA NELLA REPO PUBBLICA
+  publish_to_public_repo:
+    name: 🚀 Spara alla Repo Pubblica
+    needs: [build-mac, build-windows, build-linux] # Aspetta che Mac, Windows e Linux finiscano!
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Scarica tutti gli artefatti compilati
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true # Raccoglie tutti i file (exe, linux, mac) in una sola cartella
+
+      - name: 🚀 Crea Release nella Vetrina Pubblica
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: MauryDevIta/j-ray-releases # 🔴 LA TUA REPO PUBBLICA (Controlla che il nome sia esatto!)
+          tag_name: ${{ github.ref_name }}
+          name: J-RAY PRO ${{ github.ref_name }}
+          files: artifacts/* # Prende tutti i file che ha appena scaricato e li allega
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }} # 🔴 IL "PASSAPORTO" CHE ABBIAMO CREATO

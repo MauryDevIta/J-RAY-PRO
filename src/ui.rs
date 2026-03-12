@@ -570,7 +570,7 @@ impl eframe::App for JRayPro {
             if self.zoom > 0.15 {
                 let dot_color = egui::Color32::from_gray(30);
                 for x in 0..=(ui.available_width() / dot_gap) as i32 + 1 {
-                    for y in 0..=(ui.available_height() / dot_gap) as i32 + 1 { painter.circle_filled(egui::pos2((x as f32 * dot_gap) + (self.pan.x % dot_gap), (y as f32 * dot_gap) + (self.pan.y % dot_gap)), 1.0, dot_color); }
+                    for y in 0..=(ui.available_height() / dot_gap) as i32 + 1 { painter.circle_filled(egui::pos2(screen_rect.min.x + (x as f32 * dot_gap) + (self.pan.x % dot_gap), screen_rect.min.y + (y as f32 * dot_gap) + (self.pan.y % dot_gap)), 1.0, dot_color); }
                 }
             }
 
@@ -591,22 +591,24 @@ impl eframe::App for JRayPro {
 
             if ctx.input(|i| i.pointer.any_pressed()) && !is_hovering_minimap {
                 if let Some(pos) = pointer_pos {
-                    for (idx, node) in self.nodes.iter_mut().enumerate().rev() {
-                        if !node.visible { continue; }
-                        let rect = egui::Rect::from_min_size(to_screen(node.pos), egui::vec2(220.0, 65.0) * self.zoom);
-                        let header_rect = egui::Rect::from_min_max(rect.min, egui::pos2(rect.max.x, rect.min.y + 25.0 * self.zoom));
-                        let is_container = &*node.node_type == "OBJ" || &*node.node_type == "ARR" || &*node.node_type == "STACK";
-                        let fold_rect = egui::Rect::from_center_size(rect.right_top() + egui::vec2(-15.0, 12.5) * self.zoom, egui::vec2(20.0, 15.0) * self.zoom);
+                    if screen_rect.contains(pos) {
+                        for (idx, node) in self.nodes.iter_mut().enumerate().rev() {
+                            if !node.visible { continue; }
+                            let rect = egui::Rect::from_min_size(to_screen(node.pos), egui::vec2(220.0, 65.0) * self.zoom);
+                            let header_rect = egui::Rect::from_min_max(rect.min, egui::pos2(rect.max.x, rect.min.y + 25.0 * self.zoom));
+                            let is_container = &*node.node_type == "OBJ" || &*node.node_type == "ARR" || &*node.node_type == "STACK";
+                            let fold_rect = egui::Rect::from_center_size(rect.right_top() + egui::vec2(-15.0, 12.5) * self.zoom, egui::vec2(20.0, 15.0) * self.zoom);
 
-                        if is_container && fold_rect.contains(pos) { 
-                            if &*node.node_type == "STACK" {
-                                expand_stack_path = Some(node.path.clone()); 
-                            } else {
-                                node.collapsed = !node.collapsed; requires_visibility_update = true; 
+                            if is_container && fold_rect.contains(pos) { 
+                                if &*node.node_type == "STACK" {
+                                    expand_stack_path = Some(node.path.clone()); 
+                                } else {
+                                    node.collapsed = !node.collapsed; requires_visibility_update = true; 
+                                }
+                                break; 
                             }
-                            break; 
+                            if header_rect.contains(pos) && !fold_rect.contains(pos) { self.dragged_node = Some(idx); break; }
                         }
-                        if header_rect.contains(pos) && !fold_rect.contains(pos) { self.dragged_node = Some(idx); break; }
                     }
                 }
             }
@@ -675,12 +677,18 @@ impl eframe::App for JRayPro {
                         let is_container = &*node.node_type == "OBJ" || &*node.node_type == "ARR" || &*node.node_type == "STACK";
                         if !is_container {
                             let text_rect = egui::Rect::from_center_size(rect.center() + egui::vec2(0.0, 10.0 * self.zoom), egui::vec2(190.0, 20.0) * self.zoom);
-                            ui.put(text_rect, egui::TextEdit::singleline(&mut node.value).font(egui::FontId::monospace(11.0 * self.zoom)).text_color(egui::Color32::from_rgb(200, 200, 200)).frame(false).horizontal_align(egui::Align::Center));
+                            if screen_rect.contains(text_rect.min) && screen_rect.contains(text_rect.max) {
+                                ui.put(text_rect, egui::TextEdit::singleline(&mut node.value).font(egui::FontId::monospace(11.0 * self.zoom)).text_color(egui::Color32::from_rgb(200, 200, 200)).frame(false).horizontal_align(egui::Align::Center));
+                            } else {
+                                painter.text(text_rect.center(), egui::Align2::CENTER_CENTER, &node.value, egui::FontId::monospace(11.0 * self.zoom), egui::Color32::from_rgb(200, 200, 200));
+                            }
                             
                             if node.is_secret {
                                 let btn_rect = egui::Rect::from_center_size(rect.right_center() + egui::vec2(-20.0 * self.zoom, 8.0 * self.zoom), egui::vec2(24.0, 16.0) * self.zoom);
-                                if ui.put(btn_rect, egui::Button::new(egui::RichText::new("🔓").size(10.0 * self.zoom)).fill(egui::Color32::from_rgb(220, 38, 38))).on_hover_text("Crack open Token (JWT/Base64)").clicked() {
-                                    do_decode = Some(node.value.clone());
+                                if screen_rect.contains(btn_rect.min) && screen_rect.contains(btn_rect.max) {
+                                    if ui.put(btn_rect, egui::Button::new(egui::RichText::new("🔓").size(10.0 * self.zoom)).fill(egui::Color32::from_rgb(220, 38, 38))).on_hover_text("Crack open Token (JWT/Base64)").clicked() {
+                                        do_decode = Some(node.value.clone());
+                                    }
                                 }
                             }
 
